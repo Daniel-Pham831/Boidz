@@ -519,7 +519,7 @@ MonoBehaviour:
   CameraFollowTarget: {fileID: 519420032}
   enableZooming: 1
   minZoom: 5
-  maxZoom: 35
+  maxZoom: 30
   zoomSpeed: 0.3
   zoomDuration: 0.2
   zoomCurve:
@@ -595,7 +595,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _spawnRatePerSecond: 50
-  _maxBoidCount: 20000
+  _maxBoidCount: 1000000
   _isSpawning: 0
   _meshFilter: {fileID: 1772690979}
   _meshRenderer: {fileID: 1772690978}

@@ -69,6 +69,7 @@ public class BoidManager : MonoLocator<BoidManager>
         _boidMesh = new Mesh();
         _vertices = new Vector3[_maxBoidCount * 3];
         _triangles = new int[_maxBoidCount * 3];
+        _boidMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
 
         // Initialize triangle indices (same for all boids)
         for (int i = 0; i < _maxBoidCount; i++)
@@ -83,7 +84,6 @@ public class BoidManager : MonoLocator<BoidManager>
         _boidMesh.triangles = _triangles;
 
         _meshFilter.mesh = _boidMesh;
-        _boidMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt16;
     }
 
     private void UpdateMesh()
