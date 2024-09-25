@@ -518,7 +518,7 @@ MonoBehaviour:
   Camera: {fileID: 519420031}
   CameraFollowTarget: {fileID: 519420032}
   enableZooming: 1
-  minZoom: 5
+  minZoom: 1
   maxZoom: 30
   zoomSpeed: 0.3
   zoomDuration: 0.2

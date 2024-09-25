@@ -11,6 +11,8 @@ Shader "Custom/BoidShader"
 
         Pass
         {
+            Cull Back // Cull back faces to avoid rendering unnecessary geometry
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -33,8 +35,24 @@ Shader "Custom/BoidShader"
             v2f vert(appdata v)
             {
                 v2f o;
-                o.pos = UnityObjectToClipPos(v.vertex);
-                o.color = _Color;
+
+                // Transform the vertex position to clip space
+                float4 clipPos = UnityObjectToClipPos(v.vertex);
+
+                // Simple frustum culling based on clip space coordinates
+                if (clipPos.x < -clipPos.w || clipPos.x > clipPos.w ||
+                    clipPos.y < -clipPos.w || clipPos.y > clipPos.w ||
+                    clipPos.z < 0.0 || clipPos.z > clipPos.w)
+                {
+                    // Move the vertex far off-screen if it's outside the frustum
+                    o.pos = float4(4000,4000, 4000, 1);
+                    o.color = fixed4(0,0,0,0);
+                }else
+                {
+                    o.pos = clipPos;
+                    o.color = _Color;
+                }
+                
                 return o;
             }
 
