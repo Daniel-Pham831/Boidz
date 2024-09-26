@@ -31,6 +31,7 @@ public class BoidManager : MonoLocator<BoidManager>
     private int[] _triangles;
 
     private ComputeBuffer _vertexPositionBuffer;
+    private Vector2[] _vertexPositions;
 
     [Button("Toggle Spawning")]
     private void ToggleSpawning()
@@ -51,7 +52,7 @@ public class BoidManager : MonoLocator<BoidManager>
 
     private void InitializeVertexPositionBuffer()
     {
-        Vector2[] vertexPositions = new Vector2[_maxBoidCount * 3]; // Assuming each boid has 3 vertices (a triangle)
+        _vertexPositions = new Vector2[_maxBoidCount * 3]; // Assuming each boid has 3 vertices (a triangle)
 
         // Populate the vertex positions (this is just an example; adapt as needed)
         for (int i = 0; i < _maxBoidCount; i++)
@@ -64,13 +65,13 @@ public class BoidManager : MonoLocator<BoidManager>
             Vector2[] boidVertices = CreateBoidVertices(position, direction);
 
             int vertexIndex = i * 3;
-            vertexPositions[vertexIndex] = boidVertices[0];
-            vertexPositions[vertexIndex + 1] = boidVertices[1];
-            vertexPositions[vertexIndex + 2] = boidVertices[2];
+            _vertexPositions[vertexIndex] = boidVertices[0];
+            _vertexPositions[vertexIndex + 1] = boidVertices[1];
+            _vertexPositions[vertexIndex + 2] = boidVertices[2];
         }
 
-        _vertexPositionBuffer = new ComputeBuffer(vertexPositions.Length, sizeof(float) * 2); // 2 floats per vertex
-        _vertexPositionBuffer.SetData(vertexPositions);
+        _vertexPositionBuffer = new ComputeBuffer(_vertexPositions.Length, sizeof(float) * 2); // 2 floats per vertex
+        _vertexPositionBuffer.SetData(_vertexPositions);
 
         // Pass the buffer to the shader
         _meshRenderer.sharedMaterial.SetBuffer("vertexPositions", _vertexPositionBuffer);
@@ -84,6 +85,32 @@ public class BoidManager : MonoLocator<BoidManager>
         }
 
         base.OnDestroy();
+    }
+
+    private void FixedUpdate()
+    {
+        MoveAllVertices();
+        
+        _meshRenderer.sharedMaterial.SetBuffer("vertexPositions", _vertexPositionBuffer);
+    }
+
+    private void MoveAllVertices()
+    {
+        for (int i = 0; i < _maxBoidCount; i++)
+        {
+            Vector2 oldPosition = _vertexPositions[i * 3];
+            Vector2 base1 = _vertexPositions[i * 3 + 1];
+            Vector2 base2 = _vertexPositions[i * 3 + 2];
+            Vector2 oldDirection = ((base1 + base2) / -2).normalized;
+            Vector2[] boidVertices = CreateBoidVertices(oldPosition + oldDirection * Time.fixedDeltaTime, oldDirection);
+
+            int vertexIndex = i * 3;
+            _vertexPositions[vertexIndex] = boidVertices[0];
+            _vertexPositions[vertexIndex + 1] = boidVertices[1];
+            _vertexPositions[vertexIndex + 2] = boidVertices[2];
+        }
+
+        _vertexPositionBuffer.SetData(_vertexPositions);
     }
 
     private void InitializeMesh()
