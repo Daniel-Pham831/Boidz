@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Sirenix.OdinInspector;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Util;
+using Random = UnityEngine.Random;
 
 
 public class BoidManager : MonoLocator<BoidManager>
@@ -15,29 +18,20 @@ public class BoidManager : MonoLocator<BoidManager>
     public float TopRightX { get; private set; }
     public float TopRightY { get; private set; }
 
-    [SerializeField] private int _spawnRatePerSecond = 50;
-    [SerializeField] private int _maxBoidCount = 500;
-    [ReadOnly] public bool _isSpawning = false;
-
-    [ShowInInspector, ReadOnly] public int Count => _currentBoidCount;
-
-    private int _currentBoidCount = 0;
-
+    [SerializeField] private int _boidCount = 500;
+    [SerializeField] private float boidSpeed = 5f;
     [SerializeField] private MeshFilter _meshFilter;
-    [SerializeField] private MeshRenderer _meshRenderer;
-
+    [SerializeField] private Material _material;
+    [SerializeField] private ComputeShader _compute;
+    
     private Mesh _boidMesh;
-    private Vector2[] _vertices;
     private int[] _triangles;
+    
+    private ComputeBuffer _boidDataBuffer;
+    private ComputeBuffer _argsBuffer;
 
-    private ComputeBuffer _vertexPositionBuffer;
-    private Vector2[] _vertexPositions;
-
-    [Button("Toggle Spawning")]
-    private void ToggleSpawning()
-    {
-        _isSpawning = !_isSpawning;
-    }
+    private int _kernel;
+    private static readonly int BoidDataBufferNameID = Shader.PropertyToID("data");
 
     private void Start()
     {
@@ -47,80 +41,93 @@ public class BoidManager : MonoLocator<BoidManager>
         TopRightY = _environmentManager.TopRightCorner.y;
 
         InitializeMesh();
-        InitializeVertexPositionBuffer(); // Initialize and set the vertex position buffer
+        InitializeBoidDataBuffer();
+        InitializeArgsBuffer();
+    }
+    
+    private void InitializeArgsBuffer()
+    {
+        uint[] args = new uint[5];
+        Mesh mesh = _boidMesh;
+
+        // Populate args buffer
+        args[0] = (mesh != null) ? mesh.GetIndexCount(0) : 0; // Index count per instance
+        args[1] = (uint)_boidCount; // Instance count
+        args[2] = 0; // Start index location
+        args[3] = 0; // Base vertex location
+        args[4] = 0; // Start instance location
+
+        _argsBuffer = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+        _argsBuffer.SetData(args);
     }
 
-    private void InitializeVertexPositionBuffer()
+    private void InitializeBoidDataBuffer()
     {
-        _vertexPositions = new Vector2[_maxBoidCount * 3]; // Assuming each boid has 3 vertices (a triangle)
-
-        // Populate the vertex positions (this is just an example; adapt as needed)
-        for (int i = 0; i < _maxBoidCount; i++)
+        _kernel = _compute.FindKernel("cs_main");
+        // pass some const datas to compute shader
+        _compute.SetFloat("left_bound",BotLeftX);
+        _compute.SetFloat("right_bound",TopRightX);
+        _compute.SetFloat("top_bound",TopRightY);
+        _compute.SetFloat("bottom_bound",BotLeftY);
+        
+        _compute.SetInt("boid_count", _boidCount);
+        _compute.SetFloat("boid_speed", boidSpeed);
+        
+        var boidDataBuffer = new BoidData[_boidCount];
+        for (int i = 0; i < _boidCount; i++)
         {
-            Vector2 position = new Vector2(UnityEngine.Random.Range(BotLeftX, TopRightX),
-                UnityEngine.Random.Range(BotLeftY, TopRightY));
-            Vector2 direction = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f))
-                .normalized;
-
-            Vector2[] boidVertices = CreateBoidVertices(position, direction);
-
-            int vertexIndex = i * 3;
-            _vertexPositions[vertexIndex] = boidVertices[0];
-            _vertexPositions[vertexIndex + 1] = boidVertices[1];
-            _vertexPositions[vertexIndex + 2] = boidVertices[2];
+            var randomDirection = new Vector2(UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-1f, 1f)).normalized;
+            
+            var positionX = UnityEngine.Random.Range(BotLeftX, TopRightX);
+            var positionY = UnityEngine.Random.Range(BotLeftY, TopRightY);
+            
+            boidDataBuffer[i] = new BoidData
+            {
+                pos = new float2(positionX, positionY),
+                angle = Mathf.Atan2(randomDirection.y, randomDirection.x) - Mathf.PI / 2f,
+                size = Random.Range(0.25f,1.5f),    // Precompute size
+            };
         }
-
-        _vertexPositionBuffer = new ComputeBuffer(_vertexPositions.Length, sizeof(float) * 2); // 2 floats per vertex
-        _vertexPositionBuffer.SetData(_vertexPositions);
-
-        // Pass the buffer to the shader
-        _meshRenderer.sharedMaterial.SetBuffer("vertexPositions", _vertexPositionBuffer);
-    }
-
-    protected override void OnDestroy()
-    {
-        if (_vertexPositionBuffer != null)
-        {
-            _vertexPositionBuffer.Release();
-        }
-
-        base.OnDestroy();
+        
+        _boidDataBuffer = new ComputeBuffer(_boidCount, GetSizeOfBoidData());
+        _boidDataBuffer.SetData(boidDataBuffer);
+        
+        _compute.SetBuffer(_kernel, BoidDataBufferNameID, _boidDataBuffer);
+        _material.SetBuffer(BoidDataBufferNameID, _boidDataBuffer);
     }
 
     private void FixedUpdate()
     {
-        MoveAllVertices();
-        
-        _meshRenderer.sharedMaterial.SetBuffer("vertexPositions", _vertexPositionBuffer);
+        _compute.SetFloat("deltaTime", Time.fixedDeltaTime);
+        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
+
+        Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * 1500), _argsBuffer);
     }
 
-    private void MoveAllVertices()
+    private int GetSizeOfBoidData()
     {
-        for (int i = 0; i < _maxBoidCount; i++)
-        {
-            Vector2 oldPosition = _vertexPositions[i * 3];
-            Vector2 base1 = _vertexPositions[i * 3 + 1];
-            Vector2 base2 = _vertexPositions[i * 3 + 2];
-            Vector2 oldDirection = ((base1 + base2) / -2).normalized;
-            Vector2[] boidVertices = CreateBoidVertices(oldPosition + oldDirection * Time.fixedDeltaTime, oldDirection);
+        // public float2 pos;  -> 2floats
+        // public float2 dir;  -> 2floats
+        // public float variateMultiplier; -> 1float
+        
+        return sizeof(float) * 4;
+    }
 
-            int vertexIndex = i * 3;
-            _vertexPositions[vertexIndex] = boidVertices[0];
-            _vertexPositions[vertexIndex + 1] = boidVertices[1];
-            _vertexPositions[vertexIndex + 2] = boidVertices[2];
-        }
-
-        _vertexPositionBuffer.SetData(_vertexPositions);
+    protected override void OnDestroy()
+    {
+        _boidDataBuffer?.Release();
+        _argsBuffer?.Release();
+        base.OnDestroy();
     }
 
     private void InitializeMesh()
     {
         _boidMesh = new Mesh();
-        _triangles = new int[_maxBoidCount * 3];
+        _triangles = new int[_boidCount * 3];
         _boidMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
 
         // Initialize triangle indices (same for all boids)
-        for (int i = 0; i < _maxBoidCount; i++)
+        for (int i = 0; i < _boidCount; i++)
         {
             int vertexIndex = i * 3;
             _triangles[vertexIndex] = vertexIndex;
@@ -128,7 +135,7 @@ public class BoidManager : MonoLocator<BoidManager>
             _triangles[vertexIndex + 2] = vertexIndex + 2;
         }
 
-        var vertices = new Vector3[_maxBoidCount * 3];
+        var vertices = new Vector3[_boidCount * 3];
         // create 4 vertices at 4 world corners, so that the mesh is always visible
         vertices[0] = new Vector3(BotLeftX, BotLeftY, 0);
         vertices[1] = new Vector3(BotLeftX, TopRightY, 0);
@@ -141,21 +148,13 @@ public class BoidManager : MonoLocator<BoidManager>
         _meshFilter.mesh = _boidMesh;
     }
 
-    private Vector2[] CreateBoidVertices(Vector2 position, Vector2 direction)
+    private struct BoidData // this must be the same with boid_data in BoidMovement.compute
     {
-        Vector2[] vertices = new Vector2[3];
-        float size = 0.1f;
-
-        // Define the tip of the triangle
-        vertices[0] = new Vector2(position.x + direction.x * size, position.y + direction.y * size);
-
-        // Define the base of the triangle
-        Vector2 baseDirection = Quaternion.Euler(0, 0, -90) * direction;
-        Vector2 baseOffset = baseDirection * (size * 0.5f);
-
-        vertices[1] = new Vector2(position.x + baseOffset.x, position.y + baseOffset.y);
-        vertices[2] = new Vector2(position.x - baseOffset.x, position.y - baseOffset.y);
-
-        return vertices;
+        // ---- this will be calculated in compute shader ----
+        public float2 pos; 
+        public float angle; 
+        
+        // ---- this will be hardcoded for each boid ----
+        public float size;
     }
 }
