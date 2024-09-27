@@ -37,6 +37,34 @@ struct spatial_data
 RWStructuredBuffer<boid_data> data;
 RWStructuredBuffer<spatial_data> spatialData;
 
+
+float Hash21(float2 p) {
+    p = frac(p * 0.3183099 + 0.1);
+    p *= 17.0;
+    return frac(p.x * p.y * (p.x + p.y));
+}
+
+float Random(float seed) {
+    return frac(sin(seed) * 43758.5453123);
+}
+
+float RandomInRange(float seed, float x, float y) {
+    const float randomValue = Random(seed); // Get a random value between 0 and 1
+    return lerp(x, y, randomValue);   // Scale and offset it to the range [x, y]
+}
+
+float2 normalize_ver2(uint id ,float2 v)
+{
+    float len = length(v);
+    if (len == 0)
+    {
+        v = float2(Random(id), Random(id));
+        len = length(v);
+    }
+    
+    return v / len;
+}
+
 void get_spatial_data_index(const float2 position,inout int index)
 {
     const int col = floor((position.x - left_bound) / boid_radius);
@@ -45,7 +73,7 @@ void get_spatial_data_index(const float2 position,inout int index)
 }
 
 // implement boid algorithm and find the next direction
-void calculate_next_direction(const float2 thisBoidPosition,inout float2 dir)
+void calculate_next_direction(uint id,const float2 thisBoidPosition,inout float2 dir)
 {
     float2 accumulateDirectionToOtherBoids = float2(0, 0); // for Separation
     float2 accumulateForwardDirectionOfOtherBoids = float2(0, 0); // for Alignment
@@ -90,7 +118,7 @@ void calculate_next_direction(const float2 thisBoidPosition,inout float2 dir)
                 }
 
                 float2 other_dir = float2(sin(other_boid_data.rotationInRad), cos(other_boid_data.rotationInRad));
-                other_dir = normalize(other_dir);
+                other_dir = normalize_ver2(i,other_dir);
 
                 accumulateDirectionToOtherBoids += thisBoidPosition - otherBoidPosition; // Subtract to move away
                 accumulateForwardDirectionOfOtherBoids += other_dir;
@@ -104,19 +132,19 @@ void calculate_next_direction(const float2 thisBoidPosition,inout float2 dir)
     {
         // Cohesion: Calculate the average position and the direction to that position
         float2 centerOfMass = averagePositionOfOtherBoids / numberOfInRangeBoid;
-        float2 cohesionDirection = normalize(centerOfMass - thisBoidPosition) * cohesion_weight;
+        float2 cohesionDirection = normalize_ver2(id,centerOfMass - thisBoidPosition) * cohesion_weight;
 
         // Separation: Move away from the neighbors
-        float2 separationDirection = normalize(accumulateDirectionToOtherBoids / numberOfInRangeBoid) * separation_weight;
+        float2 separationDirection = normalize_ver2(id,accumulateDirectionToOtherBoids / numberOfInRangeBoid) * separation_weight;
 
         // Alignment: Steer towards the average heading of neighbors
-        float2 alignmentDirection = normalize(accumulateForwardDirectionOfOtherBoids / numberOfInRangeBoid) * alignment_weight;
+        float2 alignmentDirection = normalize_ver2(id,accumulateForwardDirectionOfOtherBoids / numberOfInRangeBoid) * alignment_weight;
 
         // Combine the three steering behaviors
         dir += cohesionDirection + separationDirection + alignmentDirection;
     }
 
-    dir = normalize(dir);
+    dir = normalize_ver2(id,dir);
 }
 
 [numthreads(128, 1, 1)]
@@ -127,9 +155,9 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     // Convert the rotation from degrees to radians
     // Calculate the direction vector: x = cos(rad), y = sin(rad)
     float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
-    dir = normalize(dir);
+    dir = normalize_ver2(id.x,dir);
     
-    calculate_next_direction(boid_instance_data.position, dir);
+    calculate_next_direction(id.x,boid_instance_data.position, dir);
     
     // move the boid to target position based on the direction vector
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);

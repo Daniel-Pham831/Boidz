@@ -36,7 +36,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField]
     [Range(0.01f,1f)] private float cohesionWeight = 0.5f;
     
-    private readonly float boidRadius = 3 f; // this need to be fixed
+    private readonly float boidRadius = 3f; // this need to be fixed
     
     private Mesh _boidMesh;
     
