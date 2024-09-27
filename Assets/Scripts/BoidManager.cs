@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    public const int MaxItemsPerSpatialData = 100;
+    public const int MaxItemsPerSpatialData = 448;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -255,6 +255,6 @@ public class BoidManager : MonoLocator<BoidManager>
         public int startIndex;
         public int count;
 
-        public unsafe fixed uint containIndices[100];
+        public unsafe fixed uint containIndices[448];
     }
 }

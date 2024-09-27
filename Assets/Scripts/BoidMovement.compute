@@ -1,6 +1,6 @@
 #pragma kernel cs_main
 
-#define MAX_INDEX_STORE_IN_SPATIAL 100
+#define MAX_INDEX_STORE_IN_SPATIAL 448
 #pragma target 4.5
 
 #include <UnityShaderVariables.cginc>
