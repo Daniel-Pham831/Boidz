@@ -36,7 +36,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField]
     [Range(0.01f,1f)] private float cohesionWeight = 0.5f;
     
-    private readonly float boidRadius = 3 f; // this need to be fixed
+    private readonly float boidRadius = 3f; // this need to be fixed
     
     private Mesh _boidMesh;
     
@@ -110,7 +110,7 @@ public class BoidManager : MonoLocator<BoidManager>
                 boidDataBuffer[i] = new BoidData()
                 {
                     position = (Vector2)startingPosition,
-                    rotationInRad = Random.Range(0,360f) * Mathf.Deg2Rad
+                    direction = Random.insideUnitCircle.normalized
                 };
                 var spatialIndex = GetSpatialDataIndex(startingPosition.x, startingPosition.y);
                 var nextIndex =
@@ -122,7 +122,7 @@ public class BoidManager : MonoLocator<BoidManager>
             }
         }
 
-        _boidDataBuffer = new ComputeBuffer(_boidCount, sizeof(float) * 3);
+        _boidDataBuffer = new ComputeBuffer(_boidCount, sizeof(float) * 4);
         _boidDataBuffer.SetData(boidDataBuffer);
         
         _spatialDataBuffer = new ComputeBuffer(spatialDataBuffer.Length, sizeof(int) * (MaxItemsPerSpatialData + 2));
@@ -247,7 +247,7 @@ public class BoidManager : MonoLocator<BoidManager>
     private struct BoidData // this must be the same with boid_data in BoidMovement.compute
     {
         public float2 position;
-        public float rotationInRad; //0 means vector2.up
+        public float2 direction; //0 means vector2.up
     }
 
     private struct SpatialData

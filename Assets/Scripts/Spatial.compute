@@ -17,7 +17,7 @@ int spatial_data_length;
 struct boid_data
 {
     float2 position;
-    float rotationInRad; // in degrees
+    float2 direction;
 };
 
 struct spatial_data

@@ -28,7 +28,7 @@ Shader "Custom/BoidShader"
             struct boid_data
             {
                 float2 position;
-                float rotationInRad; //0 means vector2.up
+                float2 direction;
             };
 
             struct v2f
@@ -44,20 +44,31 @@ Shader "Custom/BoidShader"
             v2f vert(const appdata v, const uint instance_id: SV_InstanceID)
             {
                 v2f o;
-                boid_data boid_instance_data = data[instance_id];
 
-                float cosAngle = cos(boid_instance_data.rotationInRad);
-                float sinAngle = sin(boid_instance_data.rotationInRad);
+                // Retrieve boid data
+                const boid_data boid_instance_data = data[instance_id];
+                const float2 boid_position = boid_instance_data.position;
 
-                float2 vertex_pos = v.vertex_pos * boidSize;
-                float2 after_rotated_vertex_pos = float2(
-                    (vertex_pos.x * cosAngle + vertex_pos.y * sinAngle),
-                    -(vertex_pos.x * sinAngle - vertex_pos.y * cosAngle)
+                // Assuming boid_direction is a unit vector representing the boid's orientation
+                float2 boid_direction = boid_instance_data.direction;
+
+                // The vertex position before transformation (from the mesh)
+                float2 vertex_pos = v.vertex_pos.xy;
+
+                // Rotate the vertex position by the boid's direction
+                const float cos_angle = boid_direction.x;
+                const float sin_angle = boid_direction.y;
+
+                const float2 rotated_vertex_pos = float2(
+                    vertex_pos.x * cos_angle - vertex_pos.y * sin_angle,
+                    vertex_pos.x * sin_angle + vertex_pos.y * cos_angle
                 );
-    
-                after_rotated_vertex_pos += boid_instance_data.position;
 
-                o.pos = UnityObjectToClipPos(float4(after_rotated_vertex_pos, 0, 1.0));
+                // Translate the rotated vertex position to the boid's position
+                float2 transformed_vertex_pos = rotated_vertex_pos + boid_position;
+
+                // Convert to clip space
+                o.pos = UnityObjectToClipPos(float4(transformed_vertex_pos, 0, 1.0));
                 return o;
             }
 
