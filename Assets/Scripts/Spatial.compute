@@ -1,7 +1,7 @@
 #pragma kernel update_spatial_data
 #pragma kernel reset_spatial_data
 
-#define MAX_INDEX_STORE_IN_SPATIAL 500
+#define MAX_INDEX_STORE_IN_SPATIAL 100
 #pragma target 4.5
 
 #include <UnityShaderVariables.cginc>
@@ -25,7 +25,7 @@ struct spatial_data
     int startIndex;
     int count;
 
-    int containIndices[MAX_INDEX_STORE_IN_SPATIAL];
+    uint containIndices[MAX_INDEX_STORE_IN_SPATIAL];
 };
 
 RWStructuredBuffer<boid_data> data;
@@ -38,26 +38,24 @@ void get_spatial_data_index(const float2 position,inout int index)
     index = row * ceil((right_bound - left_bound) / boid_radius) + col;
 }
 
-[numthreads(128, 1, 1)]
+[numthreads(64, 1, 1)]
 void update_spatial_data(uint3 id : SV_DispatchThreadID)
 {
-    boid_data boid_instance_data = data[id.x];
-
     int spatial_index = -1;
     get_spatial_data_index(data[id.x].position, spatial_index);
     if(spatial_index == -1)
     {
         return;
     }
-
+    
     // Directly modify the spatial data without copying it to a local variable
     if(spatialData[spatial_index].count < MAX_INDEX_STORE_IN_SPATIAL)
     {
         // Use direct access to modify the element in the array
-        spatialData[spatial_index].containIndices[(spatialData[spatial_index].startIndex + spatialData[spatial_index].count) % MAX_INDEX_STORE_IN_SPATIAL] = id.x;
+        spatialData[spatial_index].containIndices[(spatialData[spatial_index].startIndex + spatialData[spatial_index].count) % uint(MAX_INDEX_STORE_IN_SPATIAL)] = id.x;
         
         // Increase count directly
-        spatialData[spatial_index].count++;
+        spatialData[spatial_index].count = spatialData[spatial_index].count + 1;
     }
 } 
 
@@ -68,7 +66,7 @@ void reset_spatial_data(uint3 id : SV_DispatchThreadID)
     if (i < spatial_data_length)
     {
         spatial_data spatial = spatialData[i];
-        spatial.startIndex =  (spatial.startIndex + spatial.count) % MAX_INDEX_STORE_IN_SPATIAL;
+        spatial.startIndex =  (spatial.startIndex + spatial.count) % uint(MAX_INDEX_STORE_IN_SPATIAL);
         spatial.count = 0;
         spatialData[i] = spatial; // Ensure the updated spatial data is written back
     }
