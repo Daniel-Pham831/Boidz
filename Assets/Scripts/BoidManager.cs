@@ -144,7 +144,7 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetFloat("separation_weight",separationWeight);
         _compute.SetFloat("cohesion_weight",cohesionWeight);
         
-        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 64f), 1, 1);
+        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
 
         Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * 3000), _argsBuffer);
     }
