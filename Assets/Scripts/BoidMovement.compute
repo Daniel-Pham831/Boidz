@@ -18,6 +18,12 @@ int boid_count;
 float boid_speed;
 float deltaTime;
 
+float alignment_weight;
+float separation_weight;
+float cohesion_weight;
+
+float boid_radius;
+
 [numthreads(64, 1, 1)]
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
@@ -28,13 +34,63 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
     dir = normalize(dir);
 
+    float2 accumulateDirectionToOtherBoids = float2(0, 0); // for Separation
+    float2 accumulateForwardDirectionOfOtherBoids = float2(0, 0); // for Alignment
+    float2 averagePositionOfOtherBoids = float2(0, 0); // for Cohesion
+
+    float2 thisBoidPosition = boid_instance_data.position;
+    int numberOfInRangeBoid = 0;
+    
+    for (int i = 0; i < boid_count;i++)
+    {
+        if(id.x == i) // Skip the current boid
+        {
+            continue;
+        }
+
+        boid_data other_boid_data = data[i];
+        float2 otherBoidPosition = other_boid_data.position;
+
+        float distance = length(thisBoidPosition - otherBoidPosition);
+        if(distance > boid_radius)
+        {
+            continue;
+        }
+
+        float2 other_dir = float2(sin(other_boid_data.rotationInRad), cos(other_boid_data.rotationInRad));
+        other_dir = normalize(other_dir);
+
+        accumulateDirectionToOtherBoids += thisBoidPosition - otherBoidPosition; // Subtract to move away
+        accumulateForwardDirectionOfOtherBoids += other_dir;
+        averagePositionOfOtherBoids += otherBoidPosition;
+        numberOfInRangeBoid++;
+    }
+
+    if(numberOfInRangeBoid > 0)
+    {
+        // Cohesion: Calculate the average position and the direction to that position
+        float2 centerOfMass = averagePositionOfOtherBoids / numberOfInRangeBoid;
+        float2 cohesionDirection = normalize(centerOfMass - thisBoidPosition) * cohesion_weight;
+
+        // Separation: Move away from the neighbors
+        float2 separationDirection = normalize(accumulateDirectionToOtherBoids / numberOfInRangeBoid) * separation_weight;
+
+        // Alignment: Steer towards the average heading of neighbors
+        float2 alignmentDirection = normalize(accumulateForwardDirectionOfOtherBoids / numberOfInRangeBoid) * alignment_weight;
+
+        // Combine the three steering behaviors
+        dir += cohesionDirection + separationDirection + alignmentDirection;
+    }
+
+    dir = normalize(dir);
+    
     // move the boid to target position based on the direction vector
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
     if(new_pos.x < left_bound)
     {
         new_pos.x = right_bound;
     }
-    else if(new_pos.x > right_bound)
+    if(new_pos.x > right_bound)
     {
         new_pos.x = left_bound;
     }
@@ -42,7 +98,7 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     {
         new_pos.y = top_bound;
     }
-    else if(new_pos.y > top_bound)
+    if(new_pos.y > top_bound)
     {
         new_pos.y = bottom_bound;
     }
@@ -54,3 +110,44 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;
 }
+
+
+// Vector2 accumulateDirectionToOtherBoids = Vector2.zero; // for Separation
+//             Vector2 accumulateForwardDirectionOfOtherBoids = Vector2.zero; // for Alignment
+//             Vector2 averagePositionOfOtherBoids = Vector2.zero; // for Cohesion
+//
+//             Vector2 thisBoidPosition = Transform.position;
+//             var numberOfInRangeBoid = 0;
+//             _boidManager.EnumerateThroughBoidsAround(this, boidInRange =>
+//             {
+//                 Vector2 otherPosition = boidInRange.Transform.position;
+//
+//                 accumulateDirectionToOtherBoids += thisBoidPosition - otherPosition; // Subtract to move away
+//                 accumulateForwardDirectionOfOtherBoids += (Vector2)boidInRange.Transform.up;
+//                 averagePositionOfOtherBoids += otherPosition;
+//                 numberOfInRangeBoid++;
+//             });
+//
+//             Vector2 currentDirection = Transform.up;
+//
+//             if (numberOfInRangeBoid > 0)
+//             {
+//                 // Cohesion: Calculate the average position and the direction to that position
+//                 var centerOfMass = averagePositionOfOtherBoids / numberOfInRangeBoid;
+//                 var cohesionDirection = (centerOfMass - thisBoidPosition).normalized * _cohesionStrength;
+//
+//                 // Separation: Move away from the neighbors
+//                 var separationDirection = (accumulateDirectionToOtherBoids / numberOfInRangeBoid).normalized * _separationStrength;
+//
+//                 // Alignment: Steer towards the average heading of neighbors
+//                 var alignmentDirection = (accumulateForwardDirectionOfOtherBoids / numberOfInRangeBoid).normalized * _alignmentStrength;
+//
+//                 // Combine the three steering behaviors
+//                 currentDirection += cohesionDirection + separationDirection + alignmentDirection;
+//             }
+//
+//             // Normalize the combined direction
+//             currentDirection = currentDirection.normalized;
+//
+//             // Rotate the boid to the direction it is moving
+//             Transform.up = Vector3.Slerp(Transform.up, currentDirection, _steerStrength);

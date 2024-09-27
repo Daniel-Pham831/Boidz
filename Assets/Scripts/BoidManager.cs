@@ -18,9 +18,18 @@ public class BoidManager : MonoLocator<BoidManager>
     public float TopRightY { get; private set; }
 
     [SerializeField] private int _boidCount = 500;
-    [SerializeField] private float boidSpeed = 5f;
     [SerializeField] private Material _material;
     [SerializeField] private ComputeShader _compute;
+    
+    [Header("Boid Settings")]
+    [SerializeField] private float boidSpeed = 5f;
+    [SerializeField] private float boidRadius = 3f;
+    [SerializeField]
+    [Range(0f,1f)] private float alignmentWeight = 0.5f;
+    [SerializeField]
+    [Range(0f,1f)] private float separationWeight = 1f;
+    [SerializeField]
+    [Range(0f,1f)] private float cohesionWeight = 0.5f;
     
     private Mesh _boidMesh;
     
@@ -105,6 +114,11 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetInt("boid_count", _boidCount);
         _compute.SetFloat("boid_speed", boidSpeed);
         
+        _compute.SetFloat("boid_radius", boidRadius);
+        _compute.SetFloat("alignment_weight",alignmentWeight);
+        _compute.SetFloat("separation_weight",separationWeight);
+        _compute.SetFloat("cohesion_weight",cohesionWeight);
+        
         _compute.SetBuffer(_kernel, BoidDataBufferNameID, _boidDataBuffer);
         _material.SetBuffer(BoidDataBufferNameID, _boidDataBuffer);
         
@@ -123,7 +137,12 @@ public class BoidManager : MonoLocator<BoidManager>
     private void Update()
     {
         _compute.SetFloat("deltaTime", Time.fixedDeltaTime);
+        
         _compute.SetFloat("boid_speed", boidSpeed);
+        _compute.SetFloat("boid_radius", boidRadius);
+        _compute.SetFloat("alignment_weight",alignmentWeight);
+        _compute.SetFloat("separation_weight",separationWeight);
+        _compute.SetFloat("cohesion_weight",cohesionWeight);
         
         _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 64f), 1, 1);
 
