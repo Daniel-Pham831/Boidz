@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    public const int MaxItemsPerSpatialData = 2000;
+    public const int MaxItemsPerSpatialData = 500;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -25,6 +25,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField] private int _boidCount = 500;
     [SerializeField] private Material _material;
     [SerializeField] private ComputeShader _compute;
+    [SerializeField] private ComputeShader _spatialDataCompute;
     
     [Header("Boid Settings")]
     [SerializeField] private float boidSpeed = 5f;
@@ -45,6 +46,7 @@ public class BoidManager : MonoLocator<BoidManager>
 
     private int _kernelMain;
     private int _kernelUpdateSpatialData;
+    private int _kernelResetSpatialData;
     private static readonly int BoidDataBufferNameID = Shader.PropertyToID("data");
 
     private void Start()
@@ -120,7 +122,7 @@ public class BoidManager : MonoLocator<BoidManager>
             }
         }
 
-        _boidDataBuffer = new ComputeBuffer(_boidCount, sizeof(float) * 3);// BoidData only have a float4x4, -> there are 4x4 floats
+        _boidDataBuffer = new ComputeBuffer(_boidCount, sizeof(float) * 3);
         _boidDataBuffer.SetData(boidDataBuffer);
         
         _spatialDataBuffer = new ComputeBuffer(spatialDataBuffer.Length, sizeof(int) * (MaxItemsPerSpatialData + 2));
@@ -153,13 +155,20 @@ public class BoidManager : MonoLocator<BoidManager>
     private void InitComputeShader()
     {
         _kernelMain = _compute.FindKernel("cs_main");
-        _kernelUpdateSpatialData = _compute.FindKernel("update_spatial_data");
+        _kernelUpdateSpatialData = _spatialDataCompute.FindKernel("update_spatial_data");
+        _kernelResetSpatialData = _spatialDataCompute.FindKernel("reset_spatial_data");
         
         // pass some const datas to compute shader
         _compute.SetFloat("left_bound",BotLeftX);
         _compute.SetFloat("right_bound",TopRightX);
         _compute.SetFloat("top_bound",TopRightY);
         _compute.SetFloat("bottom_bound",BotLeftY);
+        
+        _spatialDataCompute.SetFloat("left_bound",BotLeftX);
+        _spatialDataCompute.SetFloat("right_bound",TopRightX);
+        _spatialDataCompute.SetFloat("top_bound",TopRightY);
+        _spatialDataCompute.SetFloat("bottom_bound",BotLeftY);
+        _spatialDataCompute.SetFloat("boid_radius", boidRadius);
         
         _compute.SetInt("boid_count", _boidCount);
         _compute.SetFloat("boid_speed", boidSpeed);
@@ -170,9 +179,17 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetFloat("cohesion_weight",cohesionWeight);
         
         _compute.SetBuffer(_kernelMain, BoidDataBufferNameID, _boidDataBuffer);
-        _compute.SetInt("spatial_data_length", _spatialDataBuffer.count);
-        _compute.SetBuffer(_kernelMain, "spatial_data", _spatialDataBuffer);
+        _compute.SetBuffer(_kernelMain, "spatialData", _spatialDataBuffer);
         _material.SetBuffer(BoidDataBufferNameID, _boidDataBuffer);
+        
+        
+        _spatialDataCompute.SetBuffer(_kernelUpdateSpatialData, BoidDataBufferNameID, _boidDataBuffer);
+        _spatialDataCompute.SetBuffer(_kernelUpdateSpatialData, "spatialData", _spatialDataBuffer);
+        
+        _spatialDataCompute.SetBuffer(_kernelResetSpatialData, BoidDataBufferNameID, _boidDataBuffer);
+        _spatialDataCompute.SetBuffer(_kernelResetSpatialData, "spatialData", _spatialDataBuffer);
+        
+        _spatialDataCompute.SetInt("spatial_data_length", _spatialDataBuffer.count);
         
         uint[] args = new uint[5];
 
@@ -196,6 +213,12 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetFloat("separation_weight",separationWeight);
         _compute.SetFloat("cohesion_weight",cohesionWeight);
         
+        _spatialDataCompute.SetFloat("boid_radius", boidRadius);
+        
+        _spatialDataCompute.Dispatch(_kernelResetSpatialData, Mathf.CeilToInt(_spatialDataBuffer.count / 64f), 1, 1);
+        
+        _spatialDataCompute.Dispatch(_kernelUpdateSpatialData, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
+        
         _compute.Dispatch(_kernelMain, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
 
         Graphics.DrawMeshInstancedIndirect(_boidMesh,
@@ -210,13 +233,6 @@ public class BoidManager : MonoLocator<BoidManager>
             this.gameObject.layer,
             Helper.MainCamera
         );
-    }
-
-    private void LateUpdate()
-    {
-        _compute.SetBool("has_reset_all_spatial_data", false);
-        
-        _compute.Dispatch(_kernelUpdateSpatialData, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
     }
 
     protected override void OnDestroy()
@@ -239,6 +255,6 @@ public class BoidManager : MonoLocator<BoidManager>
         public int startIndex;
         public int count;
 
-        public unsafe fixed int containIndices[2000];
+        public unsafe fixed int containIndices[500];
     }
 }

@@ -1,6 +1,7 @@
-#define MAX_INDEX_STORE_IN_SPATIAL 2000
 #pragma kernel cs_main
-#pragma kernel update_spatial_data
+
+#define MAX_INDEX_STORE_IN_SPATIAL 500
+#pragma target 4.5
 
 #include <UnityShaderVariables.cginc>
 
@@ -156,45 +157,4 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;
 }
-
-bool has_reset_all_spatial_data = false;
-int spatial_data_length;
-
-void reset_all_spatial_data()
-{
-    for(int i = 0; i < spatial_data_length; i++)
-    {
-        spatialData[i].startIndex =  (spatialData[i].startIndex + spatialData[i].count) % MAX_INDEX_STORE_IN_SPATIAL;
-        spatialData[i].count = 0;
-    }
-    
-    has_reset_all_spatial_data = true;
-}
-
-[numthreads(128, 1, 1)]
-void update_spatial_data(uint3 id : SV_DispatchThreadID)
-{
-    if(!has_reset_all_spatial_data)
-    {
-        reset_all_spatial_data();
-    }
-    
-    boid_data boid_instance_data = data[id.x];
-
-    int spatial_index = -1;
-    get_spatial_data_index(boid_instance_data.position, spatial_index);
-    if(spatial_index == -1)
-    {
-        return;
-    }
-
-    spatial_data spatial = spatialData[spatial_index];
-    if(spatial.count < MAX_INDEX_STORE_IN_SPATIAL)
-    {
-        spatial.containIndices[(spatial.startIndex + spatial.count) % MAX_INDEX_STORE_IN_SPATIAL] = id.x;
-        spatial.count++;
-
-        spatialData[spatial_index] = spatial;
-    }
-} 
 
