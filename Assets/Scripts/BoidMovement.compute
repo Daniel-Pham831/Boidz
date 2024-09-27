@@ -28,30 +28,29 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
     dir = normalize(dir);
 
-    // Calculate the new position
+    // move the boid to target position based on the direction vector
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
-
-    // Handle wrapping around the bounds
     if(new_pos.x < left_bound)
     {
         new_pos.x = right_bound;
     }
-
-    if(new_pos.x > right_bound)
+    else if(new_pos.x > right_bound)
     {
         new_pos.x = left_bound;
     }
-
     if(new_pos.y < bottom_bound)
     {
         new_pos.y = top_bound;
     }
-
-    if(new_pos.y > top_bound)
+    else if(new_pos.y > top_bound)
     {
         new_pos.y = bottom_bound;
     }
-    
-    // Update the boid's position in the buffer
-    data[id.x].position = new_pos;
+
+    // Update the position and rotationInRad back to the original data
+    boid_instance_data.position = new_pos;
+    boid_instance_data.rotationInRad =  atan2(dir.x, dir.y);
+
+    // Write the updated boid data back to the buffer
+    data[id.x] = boid_instance_data;
 }
