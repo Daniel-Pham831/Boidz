@@ -25,11 +25,11 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField] private float boidSpeed = 5f;
     [SerializeField] private float boidRadius = 3f;
     [SerializeField]
-    [Range(0f,1f)] private float alignmentWeight = 0.5f;
+    [Range(0.01f,1f)] private float alignmentWeight = 0.5f;
     [SerializeField]
-    [Range(0f,1f)] private float separationWeight = 1f;
+    [Range(0.01f,1f)] private float separationWeight = 1f;
     [SerializeField]
-    [Range(0f,1f)] private float cohesionWeight = 0.5f;
+    [Range(0.01f,1f)] private float cohesionWeight = 0.5f;
     
     private Mesh _boidMesh;
     
