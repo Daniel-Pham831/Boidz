@@ -1,7 +1,7 @@
 #pragma kernel update_spatial_data
 #pragma kernel reset_spatial_data
 
-#define MAX_INDEX_STORE_IN_SPATIAL 100
+#define MAX_INDEX_STORE_IN_SPATIAL 256
 #pragma target 4.5
 
 #include <UnityShaderVariables.cginc>
@@ -17,7 +17,7 @@ int spatial_data_length;
 struct boid_data
 {
     float2 position;
-    float rotationInRad; // in degrees
+    float2 direction;
 };
 
 struct spatial_data

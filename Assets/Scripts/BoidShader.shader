@@ -28,7 +28,7 @@ Shader "Custom/BoidShader"
             struct boid_data
             {
                 float2 position;
-                float rotationInRad; //0 means vector2.up
+                float2 direction;
             };
 
             struct v2f
@@ -41,23 +41,23 @@ Shader "Custom/BoidShader"
             StructuredBuffer<boid_data> data;
             uniform const float pi = 3.141592653589793238462;
 
+            void to_normal_rad(inout float rad)
+            {
+                if (rad < 0 || rad >= 2 * 3.14159265359)
+                {
+                    rad = rad - floor(rad / (2 * 3.14159265359)) * 2 * 3.14159265359;
+                }
+            }
+
             v2f vert(const appdata v, const uint instance_id: SV_InstanceID)
             {
                 v2f o;
                 boid_data boid_instance_data = data[instance_id];
+                float2 boid_position = boid_instance_data.position;
+                float2 boid_direction = boid_instance_data.direction;
+                float2 corrected_vertex_pos = float2(v.vertex_pos.x, v.vertex_pos.y) - boid_position;
 
-                float cosAngle = cos(boid_instance_data.rotationInRad);
-                float sinAngle = sin(boid_instance_data.rotationInRad);
-
-                float2 vertex_pos = v.vertex_pos * boidSize;
-                float2 after_rotated_vertex_pos = float2(
-                    (vertex_pos.x * cosAngle + vertex_pos.y * sinAngle),
-                    -(vertex_pos.x * sinAngle - vertex_pos.y * cosAngle)
-                );
-    
-                after_rotated_vertex_pos += boid_instance_data.position;
-
-                o.pos = UnityObjectToClipPos(float4(after_rotated_vertex_pos, 0, 1.0));
+                o.pos = UnityObjectToClipPos(float4(corrected_vertex_pos, 0, 1.0));
                 return o;
             }
 

@@ -1,6 +1,6 @@
 #pragma kernel cs_main
 
-#define MAX_INDEX_STORE_IN_SPATIAL 100
+#define MAX_INDEX_STORE_IN_SPATIAL 256
 #pragma target 4.5
 
 #include <UnityShaderVariables.cginc>
@@ -23,7 +23,7 @@ float boid_radius;
 struct boid_data
 {
     float2 position;
-    float rotationInRad; // in degrees
+    float2 direction;
 };
 
 struct spatial_data
@@ -52,7 +52,6 @@ void calculate_next_direction(const float2 thisBoidPosition,inout float2 dir)
     float2 averagePositionOfOtherBoids = float2(0, 0); // for Cohesion
 
     int numberOfInRangeBoid = 0;
-
     for (int row = -1;row <= 1;row++)
     {
         for (int col = -1;col <= 1;col++)
@@ -71,14 +70,14 @@ void calculate_next_direction(const float2 thisBoidPosition,inout float2 dir)
                 return;
             }
 
-            spatial_data spatial = spatialData[spatial_index];
+            const spatial_data spatial = spatialData[spatial_index];
             for(int i = 0; i< spatial.count;i++)
             {
                 int correct_index = (i + spatial.startIndex)% uint(MAX_INDEX_STORE_IN_SPATIAL);
-                int other_boid_index = spatial.containIndices[correct_index];
+                const int other_boid_index = spatial.containIndices[correct_index];
 
-                boid_data other_boid_data = data[other_boid_index];
-                float2 otherBoidPosition = other_boid_data.position;
+                const boid_data other_boid_data = data[other_boid_index];
+                const float2 otherBoidPosition = other_boid_data.position;
 
                 const float2 delta = thisBoidPosition - otherBoidPosition;
                 const float distanceSquared = dot(delta, delta);
@@ -89,15 +88,67 @@ void calculate_next_direction(const float2 thisBoidPosition,inout float2 dir)
                     continue;
                 }
 
-                float2 other_dir = float2(sin(other_boid_data.rotationInRad), cos(other_boid_data.rotationInRad));
-                other_dir = normalize(other_dir);
-
                 accumulateDirectionToOtherBoids += thisBoidPosition - otherBoidPosition; // Subtract to move away
-                accumulateForwardDirectionOfOtherBoids += other_dir;
+                accumulateForwardDirectionOfOtherBoids += other_boid_data.direction;
                 averagePositionOfOtherBoids += otherBoidPosition;
                 numberOfInRangeBoid++;
             }
         }
+    }
+    
+    if(numberOfInRangeBoid > 0)
+    {
+        // Cohesion: Calculate the average position and the direction to that position
+        float2 centerOfMass = averagePositionOfOtherBoids / numberOfInRangeBoid;
+        float2 cohesionDirection = normalize(centerOfMass - thisBoidPosition) * cohesion_weight;
+
+        // Separation: Move away from the neighbors
+        float2 separationDirection = normalize(accumulateDirectionToOtherBoids / numberOfInRangeBoid) * separation_weight;
+
+        // Alignment: Steer towards the average heading of neighbors
+        float2 alignmentDirection = normalize(accumulateForwardDirectionOfOtherBoids / numberOfInRangeBoid) * alignment_weight;
+
+        // Combine the three steering behaviors
+        dir += cohesionDirection + separationDirection + alignmentDirection;
+    }
+
+    dir = normalize(dir);
+}
+
+void calculate_next_direction_loop_all_version(const int thisBoidIndex, const float2 thisBoidPosition,inout float2 dir)
+{
+    float4 min_max_size = float4(thisBoidPosition.x-boid_radius, thisBoidPosition.x+boid_radius, thisBoidPosition.y-boid_radius, thisBoidPosition.y+boid_radius);
+    float2 accumulateDirectionToOtherBoids = float2(0, 0); // for Separation
+    float2 accumulateForwardDirectionOfOtherBoids = float2(0, 0); // for Alignment
+    float2 averagePositionOfOtherBoids = float2(0, 0); // for Cohesion
+
+    int numberOfInRangeBoid = 0;
+    for (int i = 0; i < boid_count; i++)
+    {
+        if(i == thisBoidIndex) continue;;
+
+        const boid_data other_boid_data = data[i];
+        const float2 otherBoidPosition = other_boid_data.position;
+
+        if(otherBoidPosition.x < min_max_size.x || otherBoidPosition.x > min_max_size.y || otherBoidPosition.y < min_max_size.z || otherBoidPosition.y > min_max_size.w)
+        {
+            continue;
+        }
+
+
+        const float2 delta = thisBoidPosition - otherBoidPosition;
+        const float distanceSquared = dot(delta, delta);
+        const float radiusSquared = boid_radius * boid_radius;
+
+        if (distanceSquared > radiusSquared)
+        {
+            continue;
+        }
+
+        accumulateDirectionToOtherBoids += thisBoidPosition - otherBoidPosition; // Subtract to move away
+        accumulateForwardDirectionOfOtherBoids += other_boid_data.direction;
+        averagePositionOfOtherBoids += otherBoidPosition;
+        numberOfInRangeBoid++;
     }
     
     if(numberOfInRangeBoid > 0)
@@ -124,13 +175,11 @@ void cs_main(uint3 id : SV_DispatchThreadID)
 {
     boid_data boid_instance_data = data[id.x];
     
-    // Convert the rotation from degrees to radians
-    // Calculate the direction vector: x = cos(rad), y = sin(rad)
-    float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
+    float2 dir = boid_instance_data.direction;
     dir = normalize(dir);
     
     calculate_next_direction(boid_instance_data.position, dir);
-    
+
     // move the boid to target position based on the direction vector
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
     if(new_pos.x < left_bound)
@@ -150,9 +199,8 @@ void cs_main(uint3 id : SV_DispatchThreadID)
         new_pos.y = bottom_bound;
     }
     
-    // Update the position and rotationInRad back to the original data
     boid_instance_data.position = new_pos;
-    boid_instance_data.rotationInRad =  atan2(dir.x, dir.y);
+    boid_instance_data.direction =dir;
     
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;
