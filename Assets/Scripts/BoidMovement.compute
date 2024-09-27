@@ -1,6 +1,6 @@
 #pragma kernel cs_main
 
-#define MAX_INDEX_STORE_IN_SPATIAL 448
+#define MAX_INDEX_STORE_IN_SPATIAL 256
 #pragma target 4.5
 
 #include <UnityShaderVariables.cginc>
@@ -147,7 +147,16 @@ void calculate_next_direction(uint id,const float2 thisBoidPosition,inout float2
     dir = normalize_ver2(id,dir);
 }
 
-[numthreads(128, 1, 1)]
+float safe_get_rotation_in_rad(float rotationInRad)
+{
+    if (isnan(rotationInRad) || isfinite(rotationInRad))
+    {
+        return RandomInRange(0, 0, 2 * 3.14159265359);
+    }
+    return rotationInRad;
+}
+
+[numthreads(64, 1, 1)]
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
     boid_data boid_instance_data = data[id.x];
@@ -180,7 +189,23 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     
     // Update the position and rotationInRad back to the original data
     boid_instance_data.position = new_pos;
-    boid_instance_data.rotationInRad =  atan2(dir.x, dir.y);
+    // Calculate the new rotation in radians
+    float newRotationInRad = atan2(dir.x, dir.y);
+    if (isnan(newRotationInRad) || isfinite(newRotationInRad))
+    {
+        newRotationInRad = RandomInRange(id.x,0, 2 * 3.14159265359);
+    }
+
+    // Normalize the rotation to ensure it is within the range [0, 2π)
+    if (newRotationInRad < 0)
+    {
+        newRotationInRad += 2 * 3.14159265359;
+    }
+    else if (newRotationInRad >= 2 * 3.14159265359)
+    {
+        newRotationInRad -= 2 * 3.14159265359;
+    }
+    boid_instance_data.rotationInRad = newRotationInRad;
     
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;

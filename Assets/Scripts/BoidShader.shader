@@ -45,11 +45,12 @@ Shader "Custom/BoidShader"
             {
                 v2f o;
                 boid_data boid_instance_data = data[instance_id];
+                
 
                 float cosAngle = cos(boid_instance_data.rotationInRad);
                 float sinAngle = sin(boid_instance_data.rotationInRad);
 
-                float2 vertex_pos = v.vertex_pos * boidSize;
+                float2 vertex_pos = v.vertex_pos * max(boidSize,0.1);
                 float2 after_rotated_vertex_pos = float2(
                     (vertex_pos.x * cosAngle + vertex_pos.y * sinAngle),
                     -(vertex_pos.x * sinAngle - vertex_pos.y * cosAngle)

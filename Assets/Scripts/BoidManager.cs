@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    public const int MaxItemsPerSpatialData = 448;
+    public const int MaxItemsPerSpatialData = 256;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -36,7 +36,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField]
     [Range(0.01f,1f)] private float cohesionWeight = 0.5f;
     
-    private readonly float boidRadius = 3f; // this need to be fixed
+    private readonly float boidRadius = 2f; // this need to be fixed
     
     private Mesh _boidMesh;
     
@@ -219,7 +219,7 @@ public class BoidManager : MonoLocator<BoidManager>
         
         _spatialDataCompute.Dispatch(_kernelUpdateSpatialData, Mathf.CeilToInt(_boidCount / 64f), 1, 1);
         
-        _compute.Dispatch(_kernelMain, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
+        _compute.Dispatch(_kernelMain, Mathf.CeilToInt(_boidCount / 64f), 1, 1);
         
         Graphics.DrawMeshInstancedIndirect(_boidMesh,
             0,
@@ -255,6 +255,6 @@ public class BoidManager : MonoLocator<BoidManager>
         public int startIndex;
         public int count;
 
-        public unsafe fixed uint containIndices[448];
+        public unsafe fixed uint containIndices[256];
     }
 }
