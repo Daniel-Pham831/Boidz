@@ -1,11 +1,10 @@
 #pragma kernel cs_main
 #include <UnityShaderVariables.cginc>
 
-struct boid_data  // This must match the BoidData struct on the C# side
+struct boid_data
 {
-    float2 pos;   // Boid position
-    float angle;  // Boid direction as an angle (in radians)
-    float size;   // Precomputed boid size
+    float2 position;
+    float rotationInRad; // in degrees
 };
 
 RWStructuredBuffer<boid_data> data;
@@ -19,30 +18,40 @@ int boid_count;
 float boid_speed;
 float deltaTime;
 
-[numthreads(128, 1, 1)]
+[numthreads(64, 1, 1)]
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
-    const int index = id.x;
-    
-    // Retrieve boid data once and store it in local variables
-    boid_data boid = data[index];
-    
-    // Recalculate the direction vector using the angle
-    // The y component should use cos and the x component should use sin
-    float2 dir = float2(cos(boid.angle), sin(boid.angle));
-    
+    boid_data boid_instance_data = data[id.x];
+
+    // Convert the rotation from degrees to radians
+    // Calculate the direction vector: x = cos(rad), y = sin(rad)
+    float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
+    dir = normalize(dir);
+
     // Calculate the new position
-    float2 newPos = boid.pos + dir * boid_speed * deltaTime;
+    float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
+
+    // Handle wrapping around the bounds
+    if(new_pos.x < left_bound)
+    {
+        new_pos.x = right_bound;
+    }
+
+    if(new_pos.x > right_bound)
+    {
+        new_pos.x = left_bound;
+    }
+
+    if(new_pos.y < bottom_bound)
+    {
+        new_pos.y = top_bound;
+    }
+
+    if(new_pos.y > top_bound)
+    {
+        new_pos.y = bottom_bound;
+    }
     
-    // Wrap around the bounds
-    if (newPos.x < left_bound) newPos.x = right_bound;
-    if (newPos.x > right_bound) newPos.x = left_bound;
-    if (newPos.y < bottom_bound) newPos.y = top_bound;
-    if (newPos.y > top_bound) newPos.y = bottom_bound;
-    
-    // Update the boid's position back to the buffer
-    boid.pos = newPos;
-    
-    // Write back the data only once
-    data[index] = boid;
+    // Update the boid's position in the buffer
+    data[id.x].position = new_pos;
 }

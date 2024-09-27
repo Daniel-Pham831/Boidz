@@ -3,6 +3,7 @@ Shader "Custom/BoidShader"
     Properties
     {
         _Color ("Color", Color) = (1,1,1,1)
+        boidSize ("Boid Size", Float) = 0.5
     }
     SubShader
     {
@@ -20,14 +21,14 @@ Shader "Custom/BoidShader"
 
             struct appdata
             {
-                uint vertexID : SV_VertexID;
+                float4 vertex_pos : POSITION;
+                uint vertex_id : SV_VertexID;
             };
 
             struct boid_data
             {
-                float2 pos;   // Boid position
-                float angle;  // Boid direction angle in radians
-                float size;   // Precomputed boid size
+                float2 position;
+                float rotationInRad; //0 means vector2.up
             };
 
             struct v2f
@@ -36,40 +37,27 @@ Shader "Custom/BoidShader"
             };
 
             uniform half4 _Color;
-            
+            uniform half boidSize;
             StructuredBuffer<boid_data> data;
+            uniform const float pi = 3.141592653589793238462;
 
-            v2f vert(appdata v)
+            v2f vert(const appdata v, const uint instance_id: SV_InstanceID)
             {
                 v2f o;
+                boid_data boid_instance_data = data[instance_id];
 
-                const int boid_index = v.vertexID / 3;
-                boid_data boid = data[boid_index];
+                float cosAngle = cos(boid_instance_data.rotationInRad);
+                float sinAngle = sin(boid_instance_data.rotationInRad);
 
-                float2 vertexPosition;
-
-                // Define vertices for the triangle
-                if (v.vertexID % 3 == 0)        // Tip vertex (forward)
-                    vertexPosition = float2(0.0, boid.size);
-                else if (v.vertexID % 3 == 1)   // Left base vertex
-                    vertexPosition = float2(boid.size * 0.5, -boid.size * 0.5);
-                else                            // Right base vertex
-                    vertexPosition = float2(-boid.size * 0.5, -boid.size * 0.5);
-
-                // Apply rotation based on the boid's angle
-                float adjustedAngle = boid.angle; // The angle should already be adjusted in C#.
-                float cosAngle = cos(adjustedAngle);
-                float sinAngle = sin(adjustedAngle);
-                float2 rotatedPosition = float2(
-                    vertexPosition.x * cosAngle - vertexPosition.y * sinAngle,
-                    vertexPosition.x * sinAngle + vertexPosition.y * cosAngle
+                float2 vertex_pos = v.vertex_pos * boidSize;
+                float2 after_rotated_vertex_pos = float2(
+                    (vertex_pos.x * cosAngle + vertex_pos.y * sinAngle),
+                    -(vertex_pos.x * sinAngle - vertex_pos.y * cosAngle)
                 );
+    
+                after_rotated_vertex_pos += boid_instance_data.position;
 
-                // Translate to the boid's position
-                rotatedPosition += boid.pos;
-
-                // Transform to clip space
-                o.pos = UnityObjectToClipPos(float4(rotatedPosition, 0.0, 1.0));
+                o.pos = UnityObjectToClipPos(float4(after_rotated_vertex_pos, 0, 1.0));
                 return o;
             }
 
