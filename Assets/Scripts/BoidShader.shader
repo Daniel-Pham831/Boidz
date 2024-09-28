@@ -45,7 +45,7 @@ Shader "Custom/BoidShader"
                 v2f o;
                 boid_data boid_instance_data = data[instance_id];
                 float2 dir = boid_instance_data.dir;
-                float boid_size = max(0.1, boidSize);
+                float boid_size = max(0.01, boidSize);
 
                 // i know this looks wtf, but to avoid creating new var,
                 // i'm just calculating the rotated vertex position here

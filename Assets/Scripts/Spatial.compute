@@ -33,13 +33,13 @@ int get_cell_index(float2 position)
     return floor((position.y - bottom_left_y) / boid_radius) * width + floor((position.x - bottom_left_x) / boid_radius);
 }
 
-[numthreads(128, 1, 1)]
+[numthreads(256, 1, 1)]
 void CountBoidsPerCell(uint3 id : SV_DispatchThreadID)
 {
     InterlockedAdd(gridCountBuffer[get_cell_index(boidData[id.x].position)], 1);
 }
 
-[numthreads(128, 1, 1)]
+[numthreads(256, 1, 1)]
 void PopulateGridCells(uint3 id : SV_DispatchThreadID)
 {
     uint boidIndex = id.x;
