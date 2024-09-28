@@ -1,0 +1,57 @@
+#pragma kernel CountBoidsPerCell
+#pragma kernel PopulateGridCells
+
+#define MAX_BOIDS_PER_CELL 256
+
+// Boid data structure
+struct boid_data
+{
+    float2 position;
+    float2 dir;
+};
+
+// Grid cell structure
+struct grid_cell
+{
+    uint boidIndices[MAX_BOIDS_PER_CELL];
+};
+
+// Buffers
+RWStructuredBuffer<boid_data> boidData;
+RWStructuredBuffer<int> gridCountBuffer;
+RWStructuredBuffer<grid_cell> gridBuffer;
+
+// Grid parameters
+int width;
+int height;
+float bottom_left_x;
+float bottom_left_y;
+float boid_radius;
+
+int get_cell_index(float2 position)
+{
+    return floor((position.y - bottom_left_y) / boid_radius) * width + floor((position.x - bottom_left_x) / boid_radius);
+}
+
+[numthreads(128, 1, 1)]
+void CountBoidsPerCell(uint3 id : SV_DispatchThreadID)
+{
+    InterlockedAdd(gridCountBuffer[get_cell_index(boidData[id.x].position)], 1);
+}
+
+[numthreads(128, 1, 1)]
+void PopulateGridCells(uint3 id : SV_DispatchThreadID)
+{
+    uint boidIndex = id.x;
+    int cellIndex = get_cell_index(boidData[boidIndex].position);
+
+    // Atomically get the current index to insert into and then increment it
+    int currentCount;
+    InterlockedAdd(gridCountBuffer[cellIndex], 1, currentCount); // Get the current count and then increment
+
+    // Ensure we don't overflow the cell capacity
+    if (currentCount < MAX_BOIDS_PER_CELL)
+    {
+        gridBuffer[cellIndex].boidIndices[currentCount] = boidIndex;
+    }
+}

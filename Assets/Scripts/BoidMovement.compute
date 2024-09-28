@@ -1,6 +1,8 @@
 #pragma kernel cs_main
 #include <UnityShaderVariables.cginc>
 
+#define MAX_BOIDS_PER_CELL 256
+
 // Some constant data from C# side
 float left_bound;
 float right_bound;
@@ -15,13 +17,105 @@ float separation_weight;
 float cohesion_weight;
 
 float boid_radius;
+
+// Grid parameters
+int width;
+int height;
+float bottom_left_x;
+float bottom_left_y;
+
 struct boid_data
 {
     float2 position;
     float2 dir;
 };
 
+struct grid_cell
+{
+    uint boidIndices[MAX_BOIDS_PER_CELL];
+};
+
 RWStructuredBuffer<boid_data> data;
+RWStructuredBuffer<int> gridCountBuffer;
+RWStructuredBuffer<grid_cell> gridBuffer;
+
+void get_overlapping_cells(float2 position, out int2 minCell, out int2 maxCell)
+{
+    minCell.x = floor((position.x - boid_radius - bottom_left_x) / boid_radius);
+    minCell.y = floor((position.y - boid_radius - bottom_left_y) / boid_radius);
+
+    maxCell.x = floor((position.x + boid_radius - bottom_left_x) / boid_radius);
+    maxCell.y = floor((position.y + boid_radius - bottom_left_y) / boid_radius);
+
+    // Clamp to grid boundaries if necessary
+    minCell = clamp(minCell, int2(0, 0), int2(width - 1, height - 1));
+    maxCell = clamp(maxCell, int2(0, 0), int2(width - 1, height - 1));
+}
+
+void calculate_next_direction_with_spatial_hash_grid(const int id,const float2 thisBoidPosition,inout float2 dir)
+{
+    int2 minCell, maxCell;
+    get_overlapping_cells(thisBoidPosition, minCell, maxCell);
+
+    float2 accumulateDirectionToOtherBoids = float2(0, 0); // for Separation
+    float2 accumulateForwardDirectionOfOtherBoids = float2(0, 0); // for Alignment
+    float2 averagePositionOfOtherBoids = float2(0, 0); // for Cohesion
+
+    int numberOfInRangeBoid = 0;
+
+    const float radiusSquared = boid_radius * boid_radius;
+
+    // Iterate through relevant grid cells
+    for (int y = minCell.y; y <= maxCell.y; y++)
+    {
+        for (int x = minCell.x; x <= maxCell.x; x++)
+        {
+            int cellIndex = y * width + x;
+            int numBoidsInCell = gridCountBuffer[cellIndex];
+
+            for (int i = 0; i < numBoidsInCell; i++)
+            {
+                uint boidIndex = gridBuffer[cellIndex].boidIndices[i];
+                if(boidIndex == uint(id))
+                {
+                    continue;
+                }
+                boid_data other_boid = data[boidIndex];
+
+                // Check if the boid is within the exact radius
+                float2 delta = thisBoidPosition - other_boid.position;
+                float distSquared = dot(delta, delta);
+
+                if (distSquared <= radiusSquared)
+                {
+                    accumulateDirectionToOtherBoids += thisBoidPosition - other_boid.position;
+                    accumulateForwardDirectionOfOtherBoids += other_boid.dir;
+                    averagePositionOfOtherBoids += other_boid.position;
+                    numberOfInRangeBoid++;
+                }
+            }
+        }
+    }
+
+    if(numberOfInRangeBoid > 0)
+    {
+        // Cohesion: Calculate the average position and the direction to that position
+        float2 centerOfMass = averagePositionOfOtherBoids / numberOfInRangeBoid;
+        float2 cohesionDirection = normalize(centerOfMass - thisBoidPosition) * cohesion_weight;
+
+        // Separation: Move away from the neighbors
+        float2 separationDirection = normalize(accumulateDirectionToOtherBoids / numberOfInRangeBoid) * separation_weight;
+
+        // Alignment: Steer towards the average heading of neighbors
+        float2 alignmentDirection = normalize(accumulateForwardDirectionOfOtherBoids / numberOfInRangeBoid) * alignment_weight;
+
+        // Combine the three steering behaviors
+        dir += cohesionDirection + separationDirection + alignmentDirection;
+    }
+
+    dir = normalize(dir);
+}
+
 
 // implement boid algorithm and find the next direction
 void calculate_next_direction(const int id,const float2 thisBoidPosition,inout float2 dir)
@@ -85,7 +179,7 @@ void cs_main(uint3 id : SV_DispatchThreadID)
     float2 dir = boid_instance_data.dir;
     dir = normalize(dir);
 
-    calculate_next_direction(id.x, boid_instance_data.position, dir);
+    calculate_next_direction_with_spatial_hash_grid(id.x, boid_instance_data.position, dir);
     
     // move the boid to target position based on the direction vector
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);

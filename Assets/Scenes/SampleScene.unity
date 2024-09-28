@@ -512,8 +512,8 @@ MonoBehaviour:
   _boidCount: 15360
   _material: {fileID: 2100000, guid: f4ddc2d499a51480b8fe0c41ae98a30c, type: 2}
   _compute: {fileID: 7200000, guid: b8404b0335a54288acb684a90b29ce8e, type: 3}
+  _spatialCompute: {fileID: 7200000, guid: d8132e64968744b8952a30c8e6a60345, type: 3}
   boidSpeed: 4
-  boidRadius: 1.5
   alignmentWeight: 0.7
   separationWeight: 0.8
   cohesionWeight: 0.7
