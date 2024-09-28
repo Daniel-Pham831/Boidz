@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    private const int MAX_BOIDS_PER_CELL = 256;
+    private const int MAX_BOIDS_PER_CELL = 64;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -31,7 +31,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField] [Range(0.01f, 1f)] private float separationWeight = 1f;
     [SerializeField] [Range(0.01f, 1f)] private float cohesionWeight = 0.5f;
 
-    private float boidRadius = 0.15f;
+    private float boidRadius = 0.1f;
     private Mesh _boidMesh;
 
     private ComputeBuffer _boidDataBuffer;

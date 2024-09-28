@@ -1,7 +1,7 @@
 #pragma kernel cs_main
 #include <UnityShaderVariables.cginc>
 
-#define MAX_BOIDS_PER_CELL 256
+#define MAX_BOIDS_PER_CELL 64
 
 // Some constant data from C# side
 float left_bound;
