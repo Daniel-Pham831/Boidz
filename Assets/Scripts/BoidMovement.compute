@@ -19,7 +19,7 @@ float boid_radius;
 struct boid_data
 {
     float2 position;
-    float rotationInRad; // in degrees
+    float2 dir;
 };
 
 RWStructuredBuffer<boid_data> data;
@@ -49,7 +49,7 @@ void calculate_next_direction(const int id,const float2 thisBoidPosition,inout f
             continue;
         }
 
-        float2 other_dir = float2(sin(other_boid_data.rotationInRad), cos(other_boid_data.rotationInRad));
+        float2 other_dir = other_boid_data.dir;
         other_dir = normalize(other_dir);
 
         accumulateDirectionToOtherBoids += thisBoidPosition - otherBoidPosition; // Subtract to move away
@@ -77,14 +77,14 @@ void calculate_next_direction(const int id,const float2 thisBoidPosition,inout f
     dir = normalize(dir);
 }
 
-[numthreads(128, 1, 1)]
+[numthreads(1024, 1, 1)]
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
     boid_data boid_instance_data = data[id.x];
 
     // Convert the rotation from degrees to radians
     // Calculate the direction vector: x = cos(rad), y = sin(rad)
-    float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
+    float2 dir = boid_instance_data.dir;
     dir = normalize(dir);
 
     calculate_next_direction(id.x, boid_instance_data.position, dir);
@@ -110,7 +110,7 @@ void cs_main(uint3 id : SV_DispatchThreadID)
 
     // Update the position and rotationInRad back to the original data
     boid_instance_data.position = new_pos;
-    boid_instance_data.rotationInRad =  atan2(dir.x, dir.y);
+    boid_instance_data.dir =  dir;
 
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;

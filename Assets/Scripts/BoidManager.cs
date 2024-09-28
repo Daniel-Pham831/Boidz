@@ -94,11 +94,11 @@ public class BoidManager : MonoLocator<BoidManager>
             boidDataBuffer[i] = new BoidData()
             {
                 position = (Vector2)startingPosition,
-                rotationInRad = Random.Range(0,360f) * Mathf.Deg2Rad
+                dir = Random.insideUnitCircle.normalized,
             };
         }
 
-        _boidDataBuffer = new ComputeBuffer(_boidCount, sizeof(float) * 3);// BoidData only have a float4x4, -> there are 4x4 floats
+        _boidDataBuffer = new ComputeBuffer(_boidCount, sizeof(float) * 4);// BoidData only have a float4x4, -> there are 4x4 floats
         _boidDataBuffer.SetData(boidDataBuffer);
     }
     
@@ -144,7 +144,7 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetFloat("separation_weight",separationWeight);
         _compute.SetFloat("cohesion_weight",cohesionWeight);
         
-        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 128f), 1, 1);
+        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 1024), 1, 1);
 
         Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * 3000), _argsBuffer);
     }
@@ -160,6 +160,6 @@ public class BoidManager : MonoLocator<BoidManager>
     private struct BoidData // this must be the same with boid_data in BoidMovement.compute
     {
         public float2 position;
-        public float rotationInRad; //0 means vector2.up
+        public float2 dir;
     }
 }

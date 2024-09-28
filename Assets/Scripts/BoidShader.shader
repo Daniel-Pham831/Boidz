@@ -28,7 +28,7 @@ Shader "Custom/BoidShader"
             struct boid_data
             {
                 float2 position;
-                float rotationInRad; //0 means vector2.up
+                float2 dir;
             };
 
             struct v2f
@@ -39,25 +39,24 @@ Shader "Custom/BoidShader"
             uniform half4 _Color;
             uniform half boidSize;
             StructuredBuffer<boid_data> data;
-            uniform const float pi = 3.141592653589793238462;
 
             v2f vert(const appdata v, const uint instance_id: SV_InstanceID)
             {
                 v2f o;
                 boid_data boid_instance_data = data[instance_id];
+                float2 dir = boid_instance_data.dir;
+                float boid_size = max(0.1, boidSize);
 
-                float cosAngle = cos(boid_instance_data.rotationInRad);
-                float sinAngle = sin(boid_instance_data.rotationInRad);
-
-                float2 vertex_pos = v.vertex_pos * boidSize;
-                float2 after_rotated_vertex_pos = float2(
-                    (vertex_pos.x * cosAngle + vertex_pos.y * sinAngle),
-                    -(vertex_pos.x * sinAngle - vertex_pos.y * cosAngle)
+                // i know this looks wtf, but to avoid creating new var,
+                // i'm just calculating the rotated vertex position here
+                float4 rotated_vertex_pos_in_world_space = float4(
+                    (v.vertex_pos.x * dir.y + v.vertex_pos.y * dir.x)*boid_size + boid_instance_data.position.x,
+                    -(v.vertex_pos.x * dir.x - v.vertex_pos.y * dir.y)*boid_size + boid_instance_data.position.y,
+                    0,
+                    1.0
                 );
-    
-                after_rotated_vertex_pos += boid_instance_data.position;
 
-                o.pos = UnityObjectToClipPos(float4(after_rotated_vertex_pos, 0, 1.0));
+                o.pos = UnityObjectToClipPos(rotated_vertex_pos_in_world_space);
                 return o;
             }
 
