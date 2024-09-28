@@ -15,7 +15,6 @@ float separation_weight;
 float cohesion_weight;
 
 float boid_radius;
-
 struct boid_data
 {
     float2 position;
@@ -32,26 +31,25 @@ void calculate_next_direction(const int id,const float2 thisBoidPosition,inout f
     float2 averagePositionOfOtherBoids = float2(0, 0); // for Cohesion
 
     int numberOfInRangeBoid = 0;
+    const float radiusSquared = boid_radius * boid_radius;
     
     for (int i = 0; i < boid_count;i++)
     {
-        if(id == i) // Skip the current boid
+        if(id == i)
         {
             continue;
         }
 
         boid_data other_boid_data = data[i];
         float2 otherBoidPosition = other_boid_data.position;
-
-        float distance = length(thisBoidPosition - otherBoidPosition);
-        if(distance > boid_radius)
+        float distanceSquared = dot(thisBoidPosition - otherBoidPosition, thisBoidPosition - otherBoidPosition);
+        if (distanceSquared > radiusSquared)
         {
             continue;
         }
 
-        float2 other_dir = other_boid_data.dir;
-        other_dir = normalize(other_dir);
 
+        float2 other_dir = other_boid_data.dir;
         accumulateDirectionToOtherBoids += thisBoidPosition - otherBoidPosition; // Subtract to move away
         accumulateForwardDirectionOfOtherBoids += other_dir;
         averagePositionOfOtherBoids += otherBoidPosition;
