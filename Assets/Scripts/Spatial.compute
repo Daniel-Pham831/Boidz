@@ -1,7 +1,7 @@
 #pragma kernel CountBoidsPerCell
 #pragma kernel PopulateGridCells
 
-#define MAX_BOIDS_PER_CELL 64
+#define MAX_BOIDS_PER_CELL 16
 
 // Boid data structure
 struct boid_data
@@ -27,6 +27,7 @@ int height;
 float bottom_left_x;
 float bottom_left_y;
 float boid_radius;
+float radius_squared;
 
 int get_cell_index(float2 position)
 {
@@ -39,13 +40,13 @@ int get_cell_index(float2 position)
     // return y * width + x;
 }
 
-[numthreads(256, 1, 1)]
+[numthreads(1024, 1, 1)]
 void CountBoidsPerCell(uint3 id : SV_DispatchThreadID)
 {
     InterlockedAdd(gridCountBuffer[get_cell_index(boidData[id.x].position)], 1);
 }
 
-[numthreads(256, 1, 1)]
+[numthreads(1024, 1, 1)]
 void PopulateGridCells(uint3 id : SV_DispatchThreadID)
 {
     uint boidIndex = id.x;

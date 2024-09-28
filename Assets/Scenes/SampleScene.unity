@@ -435,9 +435,9 @@ MonoBehaviour:
   Camera: {fileID: 1248905453035167651}
   CameraFollowTarget: {fileID: 1248905453035167652}
   enableZooming: 1
-  minZoom: 1
+  minZoom: 0.1
   maxZoom: 30
-  zoomSpeed: 0.3
+  zoomSpeed: 0.02
   zoomDuration: 0.2
   zoomCurve:
     serializedVersion: 2
@@ -509,11 +509,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de6daa779eb040fc92dafd07e5c653c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _boidCount: 512000
+  _boidCount: 1048576
   _material: {fileID: 2100000, guid: f4ddc2d499a51480b8fe0c41ae98a30c, type: 2}
   _compute: {fileID: 7200000, guid: b8404b0335a54288acb684a90b29ce8e, type: 3}
   _spatialCompute: {fileID: 7200000, guid: d8132e64968744b8952a30c8e6a60345, type: 3}
-  boidSpeed: 0.5
+  boidSpeed: 0.2
   alignmentWeight: 0.7
   separationWeight: 0.8
   cohesionWeight: 0.7
@@ -717,7 +717,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 2
+  orthographic size: 0.75
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2

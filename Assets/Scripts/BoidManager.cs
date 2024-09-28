@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    private const int MAX_BOIDS_PER_CELL = 64;
+    private const int MAX_BOIDS_PER_CELL = 16;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -31,7 +31,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField] [Range(0.01f, 1f)] private float separationWeight = 1f;
     [SerializeField] [Range(0.01f, 1f)] private float cohesionWeight = 0.5f;
 
-    private float boidRadius = 0.1f;
+    private float boidRadius = 0.02f;
     private Mesh _boidMesh;
 
     private ComputeBuffer _boidDataBuffer;
@@ -75,11 +75,14 @@ public class BoidManager : MonoLocator<BoidManager>
         _spatialCompute.SetFloat("bottom_left_x", BotLeftX);
         _spatialCompute.SetFloat("bottom_left_y", BotLeftY);
         _spatialCompute.SetFloat("boid_radius", boidRadius);
+        _spatialCompute.SetFloat("radiusSquared", boidRadius*boidRadius);
         
         _compute.SetFloat("width", _gridWidth);
         _compute.SetFloat("height", _gridHeight);
         _compute.SetFloat("bottom_left_x", BotLeftX);
         _compute.SetFloat("bottom_left_y", BotLeftY);
+        _compute.SetFloat("radius_squared", boidRadius*boidRadius);
+        _compute.SetVector("grid_min_max", new Vector4(0, 0, _gridWidth - 1, _gridHeight - 1));
         
         // Buffer to store the number of boids per cell
         _gridCountBuffer = new ComputeBuffer(_gridWidth * _gridHeight, sizeof(int));
@@ -186,14 +189,14 @@ public class BoidManager : MonoLocator<BoidManager>
     private void Update()
     {
         _gridCountBuffer.SetData(new int[_gridWidth * _gridHeight]);
-        
+
         // Count boids in each grid cell
-        _spatialCompute.Dispatch(_countBoidsKernel, Mathf.CeilToInt(_boidCount / 256f), 1, 1);
+        _spatialCompute.Dispatch(_countBoidsKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
 
         // Populate the grid cells with boid indices
-        _spatialCompute.Dispatch(_populateGridKernel, Mathf.CeilToInt(_boidCount / 256f), 1, 1);
-        
-        _compute.SetFloat("deltaTime", Time.fixedDeltaTime);
+        _spatialCompute.Dispatch(_populateGridKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
+
+        _compute.SetFloat("deltaTime", Time.deltaTime);
 
         _compute.SetFloat("boid_speed", boidSpeed);
         _compute.SetFloat("boid_radius", boidRadius);
@@ -203,8 +206,15 @@ public class BoidManager : MonoLocator<BoidManager>
 
         _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
 
-        Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * 3000),
-            _argsBuffer);
+        Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * TopRightX),
+            _argsBuffer,
+            0,
+            null,
+            UnityEngine.Rendering.ShadowCastingMode.Off,
+            false,
+            this.gameObject.layer,
+            Helper.MainCamera
+        );
     }
 
     protected override void OnDestroy()

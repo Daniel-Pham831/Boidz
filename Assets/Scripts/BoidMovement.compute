@@ -1,7 +1,7 @@
 #pragma kernel cs_main
 #include <UnityShaderVariables.cginc>
 
-#define MAX_BOIDS_PER_CELL 64
+#define MAX_BOIDS_PER_CELL 16
 
 // Some constant data from C# side
 float left_bound;
@@ -17,12 +17,15 @@ float separation_weight;
 float cohesion_weight;
 
 float boid_radius;
+float radius_squared;
 
 // Grid parameters
 int width;
 int height;
 float bottom_left_x;
 float bottom_left_y;
+
+int4 grid_min_max;
 
 struct boid_data
 {
@@ -48,11 +51,11 @@ void get_overlapping_cells(float2 position, out int2 minCell, out int2 maxCell)
     maxCell.y = floor((position.y + boid_radius - bottom_left_y) / boid_radius);
 
     // Clamp to grid boundaries if necessary
-    minCell = clamp(minCell, int2(0, 0), int2(width - 1, height - 1));
-    maxCell = clamp(maxCell, int2(0, 0), int2(width - 1, height - 1));
+    minCell = clamp(minCell, grid_min_max.xy, grid_min_max.zw);
+    maxCell = clamp(maxCell, grid_min_max.xy, grid_min_max.zw);
 }
 
-void calculate_next_direction_with_spatial_hash_grid(const int id,const float2 thisBoidPosition,inout float2 dir)
+void calculate_next_direction_with_spatial_hash_grid(const uint id,const float2 thisBoidPosition,inout float2 dir)
 {
     int2 minCell, maxCell;
     get_overlapping_cells(thisBoidPosition, minCell, maxCell);
@@ -62,8 +65,6 @@ void calculate_next_direction_with_spatial_hash_grid(const int id,const float2 t
     float2 averagePositionOfOtherBoids = float2(0, 0); // for Cohesion
 
     int numberOfInRangeBoid = 0;
-
-    const float radiusSquared = boid_radius * boid_radius;
 
     // Iterate through relevant grid cells
     for (int y = minCell.y; y <= maxCell.y; y++)
@@ -76,7 +77,7 @@ void calculate_next_direction_with_spatial_hash_grid(const int id,const float2 t
             for (int i = 0; i < numBoidsInCell; i++)
             {
                 uint boidIndex = gridBuffer[cellIndex].boidIndices[i];
-                if(boidIndex == uint(id))
+                if(boidIndex == id)
                 {
                     continue;
                 }
@@ -86,7 +87,7 @@ void calculate_next_direction_with_spatial_hash_grid(const int id,const float2 t
                 float2 delta = thisBoidPosition - other_boid.position;
                 float distSquared = dot(delta, delta);
 
-                if (distSquared <= radiusSquared)
+                if (distSquared <= radius_squared)
                 {
                     accumulateDirectionToOtherBoids += thisBoidPosition - other_boid.position;
                     accumulateForwardDirectionOfOtherBoids += other_boid.dir;
