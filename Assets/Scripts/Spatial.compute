@@ -1,7 +1,7 @@
 #pragma kernel CountBoidsPerCell
 #pragma kernel PopulateGridCells
 
-#define MAX_BOIDS_PER_CELL 16
+#define MAX_BOIDS_PER_CELL 64
 
 // Boid data structure
 struct boid_data
