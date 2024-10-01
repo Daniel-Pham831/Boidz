@@ -188,23 +188,23 @@ public class BoidManager : MonoLocator<BoidManager>
 
     private void Update()
     {
-        _gridCountBuffer.SetData(new int[_gridWidth * _gridHeight]);
-
-        // Count boids in each grid cell
-        _spatialCompute.Dispatch(_countBoidsKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
-
-        // Populate the grid cells with boid indices
-        _spatialCompute.Dispatch(_populateGridKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
-
-        _compute.SetFloat("deltaTime", Time.deltaTime);
-
-        _compute.SetFloat("boid_speed", boidSpeed);
-        _compute.SetFloat("boid_radius", boidRadius);
-        _compute.SetFloat("alignment_weight", alignmentWeight);
-        _compute.SetFloat("separation_weight", separationWeight);
-        _compute.SetFloat("cohesion_weight", cohesionWeight);
-
-        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
+        // _gridCountBuffer.SetData(new int[_gridWidth * _gridHeight]);
+        //
+        // // Count boids in each grid cell
+        // _spatialCompute.Dispatch(_countBoidsKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
+        //
+        // // Populate the grid cells with boid indices
+        // _spatialCompute.Dispatch(_populateGridKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
+        //
+        // _compute.SetFloat("deltaTime", Time.deltaTime);
+        //
+        // _compute.SetFloat("boid_speed", boidSpeed);
+        // _compute.SetFloat("boid_radius", boidRadius);
+        // _compute.SetFloat("alignment_weight", alignmentWeight);
+        // _compute.SetFloat("separation_weight", separationWeight);
+        // _compute.SetFloat("cohesion_weight", cohesionWeight);
+        //
+        // _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
 
         Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * TopRightX),
             _argsBuffer,
