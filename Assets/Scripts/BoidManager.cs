@@ -142,12 +142,18 @@ public class BoidManager : MonoLocator<BoidManager>
         var boidDataBuffer = new BoidData[_boidCount];
         for (int i = 0; i < _boidCount; i++)
         {
+            // var startingPosition = new Vector3(
+            //     Random.Range(BotLeftX, TopRightX),
+            //     Random.Range(BotLeftY, TopRightY),
+            //     0
+            // ); 
+            
             var startingPosition = new Vector3(
-                Random.Range(BotLeftX, TopRightX),
-                Random.Range(BotLeftY, TopRightY),
+                0,
+                0,
                 0
-            );
-            // Random.Range(0f,360f)
+            ); 
+            
             boidDataBuffer[i] = new BoidData()
             {
                 position = (Vector2)startingPosition,

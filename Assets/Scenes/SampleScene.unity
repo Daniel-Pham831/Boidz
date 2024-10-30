@@ -628,11 +628,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: de6daa779eb040fc92dafd07e5c653c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _boidCount: 409600
+  _boidCount: 512
   _material: {fileID: 2100000, guid: f4ddc2d499a51480b8fe0c41ae98a30c, type: 2}
   _compute: {fileID: 7200000, guid: b8404b0335a54288acb684a90b29ce8e, type: 3}
   _spatialCompute: {fileID: 7200000, guid: d8132e64968744b8952a30c8e6a60345, type: 3}
-  boidSpeed: 0.35
+  boidSpeed: 1
   alignmentWeight: 0.7
   separationWeight: 0.8
   cohesionWeight: 0.7
@@ -712,7 +712,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.623131, g: 0.6320754, b: 0.62599254, a: 0}
+  m_BackGroundColor: {r: 0.16037738, g: 0.16037738, b: 0.16037738, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0

@@ -141,32 +141,51 @@ void calculate_next_direction_with_spatial_hash_grid(const uint id,const float2 
     dir = normalize(dir);
 }
 
+float pseudoRandom(float seed)
+{
+    return frac(sin(seed) * 43758.5453);
+}
+
 [numthreads(1024, 1, 1)]
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
     boid_data boid_instance_data = data[id.x];
     float2 dir = normalize(boid_instance_data.dir);
 
-    calculate_next_direction_with_spatial_hash_grid(id.x, boid_instance_data.position, dir);
-    
-    // move the boid to target position based on the direction vector
+    float randomAngleSeed = id.x * 3.1415f; // unique seed per boid
+    float maxAngle = (pseudoRandom(randomAngleSeed) * 2.0f - 1.0f) * radians(25.0f);
+    float influence = 0.25f; // Adjustable variable between 0 and 1
+
+    float randomSeed = id.x * 1.2345;
+    float randomAngle = (pseudoRandom(randomSeed+boid_instance_data.position.x*boid_instance_data.position.y) * 2.0f - 1.0f) * maxAngle * (1.0f - influence);
+
+    float sinAngle = sin(randomAngle);
+    float cosAngle = cos(randomAngle);
+    float2 randomDir = float2(
+        dir.x * cosAngle - dir.y * sinAngle,
+        dir.x * sinAngle + dir.y * cosAngle
+    );
+
+    // Interpolate between the current direction and the random direction based on influence
+    dir = normalize(lerp(dir, randomDir, 1.0f - influence));
+
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
-    if(new_pos.x < left_bound)
-    {
-        new_pos.x = right_bound;
-    }
-    if(new_pos.x > right_bound)
-    {
-        new_pos.x = left_bound;
-    }
-    if(new_pos.y < bottom_bound)
-    {
-        new_pos.y = top_bound;
-    }
-    if(new_pos.y > top_bound)
-    {
-        new_pos.y = bottom_bound;
-    }
+    // if(new_pos.x < left_bound)
+    // {
+    //     new_pos.x = right_bound;
+    // }
+    // if(new_pos.x > right_bound)
+    // {
+    //     new_pos.x = left_bound;
+    // }
+    // if(new_pos.y < bottom_bound)
+    // {
+    //     new_pos.y = top_bound;
+    // }
+    // if(new_pos.y > top_bound)
+    // {
+    //     new_pos.y = bottom_bound;
+    // }
 
     // Update the position and rotationInRad back to the original data
     boid_instance_data.position = new_pos;
