@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    private const int MAX_BOIDS_PER_CELL = 64;
+    private const int MAX_BOIDS_PER_CELL = 8;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -31,7 +31,7 @@ public class BoidManager : MonoLocator<BoidManager>
     [SerializeField] [Range(0.01f, 1f)] private float separationWeight = 1f;
     [SerializeField] [Range(0.01f, 1f)] private float cohesionWeight = 0.5f;
 
-    private float boidRadius = 4f;
+    private float boidRadius = 0.04f;
     private Mesh _boidMesh;
 
     private ComputeBuffer _boidDataBuffer;
@@ -116,8 +116,13 @@ public class BoidManager : MonoLocator<BoidManager>
         // tip - right - left
         var vertices = new Vector3[3];
         vertices[0] = new Vector3(0, halfLength, 0);
-        vertices[1] = new Vector3(halfLength / 2f, -halfLength, 0);
-        vertices[2] = new Vector3(-halfLength / 2f, -halfLength, 0);
+        vertices[1] = new Vector3(halfLength, -halfLength, 0);
+        vertices[2] = new Vector3(-halfLength, -halfLength, 0);
+        
+        var uvs = new Vector2[3];
+        uvs[0] = new Vector2(0.5f, 1f); // Tip the texture
+        uvs[1] = new Vector2(1f, 0f);   // Right 
+        uvs[2] = new Vector2(0f, 0f);
 
         var triangles = new int[3];
         for (int i = 0; i < 3; i++)
@@ -126,6 +131,7 @@ public class BoidManager : MonoLocator<BoidManager>
         }
 
         _boidMesh.vertices = vertices;
+        _boidMesh.uv = uvs;
         _boidMesh.triangles = triangles;
         _boidMesh.RecalculateBounds();
         _boidMesh.RecalculateNormals();
@@ -186,9 +192,17 @@ public class BoidManager : MonoLocator<BoidManager>
         _argsBuffer.SetData(args);
     }
 
+    private int[] cachedBuffsetSize;
+    private Bounds cachedBounds;
+    
     private void Update()
     {
-        _gridCountBuffer.SetData(new int[_gridWidth * _gridHeight]);
+        if (cachedBuffsetSize == null)
+        {
+            cachedBuffsetSize = new int[_gridWidth * _gridHeight];
+        }
+        
+        _gridCountBuffer.SetData(cachedBuffsetSize);
 
         // Count boids in each grid cell
         _spatialCompute.Dispatch(_countBoidsKernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
