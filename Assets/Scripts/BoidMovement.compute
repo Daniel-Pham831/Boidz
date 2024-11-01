@@ -4,12 +4,12 @@
 struct boid_data
 {
     float2 position;
-    float rotationInRad; // in degrees
+    float rotationInRad; // in radians
 };
 
 RWStructuredBuffer<boid_data> data;
 
-// Some constant data from C# side
+// Boundaries and constants from C# side
 float left_bound;
 float right_bound;
 float top_bound;
@@ -18,18 +18,37 @@ int boid_count;
 float boid_speed;
 float deltaTime;
 
-[numthreads(64, 1, 1)]
+// Pseudo-random function based on thread ID and deltaTime
+float rand(float2 seed)
+{
+    return frac(sin(dot(seed, float2(12.9898, 78.233))) * 43758.5453);
+}
+
+[numthreads(1024, 1, 1)]
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
     boid_data boid_instance_data = data[id.x];
 
-    // Convert the rotation from degrees to radians
-    // Calculate the direction vector: x = cos(rad), y = sin(rad)
-    float2 dir = float2(sin(boid_instance_data.rotationInRad), cos(boid_instance_data.rotationInRad));
+    // Hardcoded random angle range in radians (e.g., ~20 degrees in radians)
+    const float randomAngleRange = radians(20.0);
+
+    // Generate a small random angle between -randomAngleRange / 2 and +randomAngleRange / 2
+    float randomAngle = (rand(float2(id.x, deltaTime)) - 0.5f) * randomAngleRange;
+
+    // Calculate the updated rotation with random influence
+    float newRotation = boid_instance_data.rotationInRad + randomAngle;
+    
+    // Interpolate between the old and new direction based on directionInfluence
+    float interpolatedRotation = lerp(boid_instance_data.rotationInRad, newRotation, 0.01f);
+
+    // Calculate the direction vector based on the interpolated rotation
+    float2 dir = float2(sin(interpolatedRotation), cos(interpolatedRotation));
     dir = normalize(dir);
 
-    // move the boid to target position based on the direction vector
+    // Move the boid based on the updated direction
     float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
+    
+    // Boundary conditions to wrap boids around the screen edges
     if(new_pos.x < left_bound)
     {
         new_pos.x = right_bound;
@@ -47,9 +66,9 @@ void cs_main(uint3 id : SV_DispatchThreadID)
         new_pos.y = bottom_bound;
     }
 
-    // Update the position and rotationInRad back to the original data
+    // Update position and store the new interpolated rotation
     boid_instance_data.position = new_pos;
-    boid_instance_data.rotationInRad =  atan2(dir.x, dir.y);
+    boid_instance_data.rotationInRad = interpolatedRotation;
 
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;

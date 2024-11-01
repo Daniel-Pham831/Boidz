@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Sirenix.OdinInspector;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Playables;
 using UnityEngine.Serialization;
 using Util;
 using Random = UnityEngine.Random;
@@ -57,8 +58,8 @@ public class BoidManager : MonoLocator<BoidManager>
         // tip - right - left
         var vertices = new Vector3[3];
         vertices[0] = new Vector3(0, halfLength, 0);
-        vertices[1] = new Vector3(halfLength/2f, -halfLength, 0);
-        vertices[2] = new Vector3(-halfLength/2f, -halfLength, 0);
+        vertices[1] = new Vector3(halfLength, -halfLength, 0);
+        vertices[2] = new Vector3(-halfLength, -halfLength, 0);
 
         var triangles = new int[3];
         for (int i = 0; i < 3; i++)
@@ -125,7 +126,7 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetFloat("deltaTime", Time.fixedDeltaTime);
         _compute.SetFloat("boid_speed", boidSpeed);
         
-        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 64f), 1, 1);
+        _compute.Dispatch(_kernel, Mathf.CeilToInt(_boidCount / 1024f), 1, 1);
 
         Graphics.DrawMeshInstancedIndirect(_boidMesh, 0, _material, new Bounds(Vector3.zero, Vector3.one * 3000), _argsBuffer);
     }
