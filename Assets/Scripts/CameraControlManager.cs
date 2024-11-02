@@ -2,7 +2,9 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using System.Collections;
+using System.Collections.Generic;
 using Sirenix.OdinInspector;
+using TMPro;
 using UnityEngine.UI;
 using Util;
 
@@ -14,6 +16,8 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
+    [SerializeField] private TMP_Text _fpsCounterTxt;
+    
     [TabGroup(CameraGroup)] [SerializeField]
     private UnityEngine.Camera Camera;
 
@@ -87,8 +91,6 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
     private const float doubleTapThreshold = 0.3f;
 
     private bool isMainCameraActive;
-    private Vector3 _dragStartPos;
-    private Vector3 _cameraStartPos;
 
     private Image _touchImg;
 
@@ -123,22 +125,25 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
         
         _isInteractionEvent = null;
     }
-
+    
+    private readonly Dictionary<int,PointerEventData> _pointerDownEvents = new Dictionary<int, PointerEventData>();
     public void OnPointerDown(PointerEventData eventData)
     {
         if (!isMainCameraActive || !IsInteractionEnabled || (!enableDragging && !enableZooming)) return;
 
-        _dragStartPos = GetWorldPositionOnPlane(eventData.position, CameraFollowTarget.position.z);
-        _cameraStartPos = CameraFollowTarget.position;
         IsSwiperActive = true;
-
-        // Double-Tap Zoom
-        if (enableZooming && Time.time - doubleTapTime < doubleTapThreshold)
+        var isDoubleTap = _pointerDownEvents.ContainsKey(eventData.pointerId);
+        if (isDoubleTap)
         {
-            HandleDoubleTapZoom();
+            if(enableZooming  && Time.time - doubleTapTime < doubleTapThreshold)
+                HandleDoubleTapZoom();
         }
-
-        doubleTapTime = Time.time;
+        else
+        {
+            doubleTapTime = Time.time;
+            
+            _pointerDownEvents.Add(eventData.pointerId, eventData);
+        }
     }
 
     public void OnDrag(PointerEventData eventData)
@@ -149,7 +154,6 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
         // Check for pinch-zoom first
         if (Input.touchCount == 2)
         {
-            // If there are two touches, handle pinch zoom and return to avoid dragging
             OnPinchZoom();
             return;
         }
@@ -181,6 +185,12 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
 
     public void OnPointerUp(PointerEventData eventData)
     {
+        if (_pointerDownEvents.ContainsKey(eventData.pointerId))
+        {
+            if(Time.time - doubleTapTime >= doubleTapThreshold)
+                _pointerDownEvents.Remove(eventData.pointerId);
+        }
+        
         IsDragging = false;
         IsSwiperActive = false;
 
@@ -211,15 +221,14 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
             Touch touch1 = Input.GetTouch(0);
             Touch touch2 = Input.GetTouch(1);
 
-            Vector2 touch1PrevPos = touch1.position - touch1.deltaPosition;
-            Vector2 touch2PrevPos = touch2.position - touch2.deltaPosition;
+            Vector2 touch1PrevPos = (touch1.position - touch1.deltaPosition).normalized;
+            Vector2 touch2PrevPos = (touch2.position - touch2.deltaPosition).normalized;
 
             float prevMagnitude = (touch1PrevPos - touch2PrevPos).magnitude;
-            float currentMagnitude = (touch1.position - touch2.position).magnitude;
+            float currentMagnitude = (touch1.position.normalized - touch2.position.normalized).magnitude;
 
-            float difference = currentMagnitude - prevMagnitude;
-
-            Zoom(difference * zoomSpeed * Time.deltaTime);
+            float difference = Mathf.Clamp(currentMagnitude - prevMagnitude, -0.5f, 0.5f);
+            Zoom(difference * zoomSpeed);
         }
     }
 
@@ -264,16 +273,6 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
 
         Helper.MainCamera.orthographicSize = targetZoom;
         zoomCoroutine = null;
-    }
-
-    private Vector3 GetWorldPositionOnPlane(Vector3 screenPosition, float z)
-    {
-        Ray ray = Camera.ScreenPointToRay(screenPosition);
-        Plane plane = new Plane(Vector3.forward, new Vector3(0, 0, z));
-        plane.Raycast(ray, out float distance);
-        Vector3 worldPos = ray.GetPoint(distance);
-        worldPos.z = z;
-        return worldPos;
     }
 
     private float ApplyDamping(float position, float minBound, float maxBound, float orthoSize)
@@ -343,5 +342,17 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
         // Get the scroll delta and apply zoom
         float scrollDelta = eventData.scrollDelta.y;
         Zoom(scrollDelta * zoomSpeed * Time.deltaTime);
+    }
+
+    private float _lastTime;
+    
+    private void Update()
+    {
+        // update the fps counter every 0.5 seconds
+        if (Time.time - _lastTime > 0.5f)
+        {
+            _lastTime = Time.time;
+            _fpsCounterTxt.text = $"{(1 / Time.deltaTime):F1}";
+        }
     }
 }
