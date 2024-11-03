@@ -1,7 +1,7 @@
 #pragma kernel cs_main
 #include <UnityShaderVariables.cginc>
 
-#define MAX_BOIDS_PER_CELL 8
+#define MAX_BOIDS_PER_CELL 4
 
 // Some constant data from C# side
 float left_bound;
@@ -17,7 +17,9 @@ float separation_weight;
 float cohesion_weight;
 
 float boid_radius;
+float boid_diameter;
 float radius_squared;
+float steer_strength;
 
 // Grid parameters
 int width;
@@ -44,11 +46,11 @@ RWStructuredBuffer<grid_cell> gridBuffer;
 
 void get_overlapping_cells(float2 position, out int2 minCell, out int2 maxCell)
 {
-    minCell.x = floor((position.x - boid_radius - bottom_left_x) / boid_radius);
-    minCell.y = floor((position.y - boid_radius - bottom_left_y) / boid_radius);
+    minCell.x = floor((position.x - boid_radius - bottom_left_x) / boid_diameter);
+    minCell.y = floor((position.y - boid_radius - bottom_left_y) / boid_diameter);
 
-    maxCell.x = floor((position.x + boid_radius - bottom_left_x) / boid_radius);
-    maxCell.y = floor((position.y + boid_radius - bottom_left_y) / boid_radius);
+    maxCell.x = floor((position.x + boid_radius - bottom_left_x) / boid_diameter);
+    maxCell.y = floor((position.y + boid_radius - bottom_left_y) / boid_diameter);
 
     // Clamp to grid boundaries if necessary
     minCell = clamp(minCell, grid_min_max.xy, grid_min_max.zw);
@@ -89,7 +91,7 @@ void calculate_next_direction_with_spatial_hash_grid(const uint id,const float2 
 
                 if (distSquared <= radius_squared)
                 {
-                    accumulateDirectionToOtherBoids += (thisBoidPosition - other_boid.position)/2;
+                    accumulateDirectionToOtherBoids += (thisBoidPosition - other_boid.position);
                     accumulateForwardDirectionOfOtherBoids += other_boid.dir;
                     averagePositionOfOtherBoids += other_boid.position;
                     numberOfInRangeBoid++;
@@ -114,30 +116,6 @@ void calculate_next_direction_with_spatial_hash_grid(const uint id,const float2 
         dir += cohesionDirection + separationDirection + alignmentDirection;
     }
     
-    float2 moveAwayFromBoundDir = float2(0, 0);
-    if(thisBoidPosition.x < left_bound)
-    {
-        moveAwayFromBoundDir.x = 1;
-    }
-    else if(thisBoidPosition.x > right_bound)
-    {
-        moveAwayFromBoundDir.x = -1;
-    }
-
-    if(thisBoidPosition.y < bottom_bound)
-    {
-        moveAwayFromBoundDir.y = 1;
-    }
-    else if(thisBoidPosition.y > top_bound)
-    {
-        moveAwayFromBoundDir.y = -1;
-    }
-
-    if(moveAwayFromBoundDir.x != 0 || moveAwayFromBoundDir.y != 0)
-    {
-        dir += moveAwayFromBoundDir;
-    }
-
     dir = normalize(dir);
 }
 
@@ -145,12 +123,14 @@ void calculate_next_direction_with_spatial_hash_grid(const uint id,const float2 
 void cs_main(uint3 id : SV_DispatchThreadID)
 {
     boid_data boid_instance_data = data[id.x];
-    float2 dir = normalize(boid_instance_data.dir);
-
-    calculate_next_direction_with_spatial_hash_grid(id.x, boid_instance_data.position, dir);
     
-    // move the boid to target position based on the direction vector
-    float2 new_pos = boid_instance_data.position + dir * (boid_speed * deltaTime);
+    float2 old_dir = boid_instance_data.dir;
+    float2 new_dir = old_dir; 
+    calculate_next_direction_with_spatial_hash_grid(id.x, boid_instance_data.position, new_dir);
+
+    new_dir = normalize(old_dir * (1 - steer_strength) + (new_dir * steer_strength));
+
+    float2 new_pos = boid_instance_data.position + new_dir * (boid_speed * deltaTime);
     if(new_pos.x < left_bound)
     {
         new_pos.x = right_bound;
@@ -170,7 +150,7 @@ void cs_main(uint3 id : SV_DispatchThreadID)
 
     // Update the position and rotationInRad back to the original data
     boid_instance_data.position = new_pos;
-    boid_instance_data.dir =  dir;
+    boid_instance_data.dir =  new_dir;
 
     // Write the updated boid data back to the buffer
     data[id.x] = boid_instance_data;

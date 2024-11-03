@@ -1,7 +1,7 @@
 #pragma kernel CountBoidsPerCell
 #pragma kernel PopulateGridCells
 
-#define MAX_BOIDS_PER_CELL 8
+#define MAX_BOIDS_PER_CELL 4
 
 // Boid data structure
 struct boid_data
@@ -26,17 +26,16 @@ int width;
 int height;
 float bottom_left_x;
 float bottom_left_y;
-float boid_radius;
-float radius_squared;
+float boid_diameter;
 
 int get_cell_index(float2 position)
 {
     // combine every calculation into one line for performance
-    return floor((position.y - bottom_left_y) / boid_radius) * width + floor((position.x - bottom_left_x) / boid_radius);
+    return floor((position.y - bottom_left_y) / boid_diameter) * width + floor((position.x - bottom_left_x) / boid_diameter);
 
     // The above line is equivalent to the following:
-    // int x = floor((position.x - bottom_left_x) / boid_radius);
-    // int y = floor((position.y - bottom_left_y) / boid_radius);
+    // int x = floor((position.x - bottom_left_x) / boid_diameter);
+    // int y = floor((position.y - bottom_left_y) / boid_diameter);
     // return y * width + x;
 }
 

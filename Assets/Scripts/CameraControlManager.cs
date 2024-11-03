@@ -4,6 +4,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 using Sirenix.OdinInspector;
+using TMPro;
 using UnityEngine.UI;
 using Util;
 
@@ -15,6 +16,8 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
+    [SerializeField] private TMP_Text _fpsCounterTxt;
+    
     [TabGroup(CameraGroup)] [SerializeField]
     private UnityEngine.Camera Camera;
 
@@ -339,5 +342,17 @@ public class CameraControlManager : MonoLocator<CameraControlManager>, IDragHand
         // Get the scroll delta and apply zoom
         float scrollDelta = eventData.scrollDelta.y;
         Zoom(scrollDelta * zoomSpeed * Time.deltaTime);
+    }
+    
+    private float _lastTime;
+    
+    private void Update()
+    {
+        // update the fps counter every 0.5 seconds
+        if (Time.time - _lastTime > 0.5f)
+        {
+            _lastTime = Time.time;
+            _fpsCounterTxt.text = $"{(1 / Time.deltaTime):F1}";
+        }
     }
 }

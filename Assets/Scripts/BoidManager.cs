@@ -9,7 +9,7 @@ using Random = UnityEngine.Random;
 
 public class BoidManager : MonoLocator<BoidManager>
 {
-    private const int MAX_BOIDS_PER_CELL = 8;
+    private const int MAX_BOIDS_PER_CELL = 4;
     
     private EnvironmentManager _environmentManager => EnvironmentManager.Instance;
 
@@ -26,12 +26,15 @@ public class BoidManager : MonoLocator<BoidManager>
 
     [Header("Boid Settings")] [SerializeField]
     private float boidSpeed = 5f;
+    [SerializeField][Range(0f,1f)]
+    private float steerStrength = 0.5f;
 
     [SerializeField] [Range(0.01f, 1f)] private float alignmentWeight = 0.5f;
     [SerializeField] [Range(0.01f, 1f)] private float separationWeight = 1f;
     [SerializeField] [Range(0.01f, 1f)] private float cohesionWeight = 0.5f;
 
-    private float boidRadius = 0.04f;
+    private float boidRadius = 0.1f;
+    private float boidDiameter => boidRadius;
     private Mesh _boidMesh;
 
     private ComputeBuffer _boidDataBuffer;
@@ -67,21 +70,22 @@ public class BoidManager : MonoLocator<BoidManager>
         _countBoidsKernel = _spatialCompute.FindKernel("CountBoidsPerCell");
         _populateGridKernel = _spatialCompute.FindKernel("PopulateGridCells");
         
-        _gridWidth = Mathf.CeilToInt((TopRightX - BotLeftX) / boidRadius);
-        _gridHeight = Mathf.CeilToInt((TopRightY - BotLeftY) / boidRadius);
+        _gridWidth = Mathf.CeilToInt((TopRightX - BotLeftX) / boidDiameter);
+        _gridHeight = Mathf.CeilToInt((TopRightY - BotLeftY) / boidDiameter);
         
         _spatialCompute.SetFloat("width", _gridWidth);
         _spatialCompute.SetFloat("height", _gridHeight);
         _spatialCompute.SetFloat("bottom_left_x", BotLeftX);
         _spatialCompute.SetFloat("bottom_left_y", BotLeftY);
-        _spatialCompute.SetFloat("boid_radius", boidRadius);
-        _spatialCompute.SetFloat("radiusSquared", boidRadius*boidRadius);
+        _spatialCompute.SetFloat("boid_diameter", boidDiameter);
         
         _compute.SetFloat("width", _gridWidth);
         _compute.SetFloat("height", _gridHeight);
         _compute.SetFloat("bottom_left_x", BotLeftX);
         _compute.SetFloat("bottom_left_y", BotLeftY);
         _compute.SetFloat("radius_squared", boidRadius*boidRadius);
+        _compute.SetFloat("boid_radius", boidRadius);
+        _compute.SetFloat("boid_diameter", boidDiameter);
         _compute.SetVector("grid_min_max", new Vector4(0, 0, _gridWidth - 1, _gridHeight - 1));
         
         // Buffer to store the number of boids per cell
@@ -147,7 +151,7 @@ public class BoidManager : MonoLocator<BoidManager>
                 Random.Range(BotLeftY, TopRightY),
                 0
             );
-            // Random.Range(0f,360f)
+            
             boidDataBuffer[i] = new BoidData()
             {
                 position = (Vector2)startingPosition,
@@ -156,7 +160,7 @@ public class BoidManager : MonoLocator<BoidManager>
         }
 
         _boidDataBuffer =
-            new ComputeBuffer(_boidCount, sizeof(float) * 4); // BoidData only have a float4x4, -> there are 4x4 floats
+            new ComputeBuffer(_boidCount, sizeof(float) * 4); // BoidData only have a 4 floats
         _boidDataBuffer.SetData(boidDataBuffer);
     }
 
@@ -172,7 +176,6 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetInt("boid_count", _boidCount);
         _compute.SetFloat("boid_speed", boidSpeed);
 
-        _compute.SetFloat("boid_radius", boidRadius);
         _compute.SetFloat("alignment_weight", alignmentWeight);
         _compute.SetFloat("separation_weight", separationWeight);
         _compute.SetFloat("cohesion_weight", cohesionWeight);
@@ -213,7 +216,7 @@ public class BoidManager : MonoLocator<BoidManager>
         _compute.SetFloat("deltaTime", Time.deltaTime);
 
         _compute.SetFloat("boid_speed", boidSpeed);
-        _compute.SetFloat("boid_radius", boidRadius);
+        _compute.SetFloat("steer_strength", steerStrength);
         _compute.SetFloat("alignment_weight", alignmentWeight);
         _compute.SetFloat("separation_weight", separationWeight);
         _compute.SetFloat("cohesion_weight", cohesionWeight);
